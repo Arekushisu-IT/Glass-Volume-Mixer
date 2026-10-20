@@ -1,0 +1,48 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\GlassMixer.Core\GlassMixer.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <!-- WinForms is used only for the tray icon: WPF has no NotifyIcon of its own. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>GlassMixer</AssemblyName>
+    <Version>1.0.0</Version>
+    <Product>Glass Mixer</Product>
+    <Description>Per-app volume mixer with a glass window</Description>
+    <!-- Per-monitor DPI awareness: sharp text on every monitor (see app.manifest). -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- The .exe's icon in Explorer and the Start menu. Made by tools/make-icon.ps1. -->
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <!-- WFO0003 suggests the WinForms DPI API instead; this is a WPF app (WinForms is only
+         the tray icon), and for WPF the manifest is the right place. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WPF and WinForms both define Application, MessageBox, Color...
+         Keep WinForms and System.Drawing out of the global usings to avoid name clashes. -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The HTML UI is copied next to GlassMixer.exe and served to WebView2 from there. -->
+    <!-- ExcludeFromSingleFile: in the single-file Release build these stay real files next to
+         GlassMixer.exe, because WebView2 and the tray icon read them from disk. -->
+    <None Include="ui\**\*" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <!-- Also next to the .exe, so the tray icon can load its small size. -->
+    <None Include="app.ico" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+  </ItemGroup>
+
+</Project>

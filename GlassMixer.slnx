@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GlassMixer.App/GlassMixer.App.csproj" />
+    <Project Path="src/GlassMixer.Core/GlassMixer.Core.csproj" />
+    <Project Path="src/GlassMixer.Probe/GlassMixer.Probe.csproj" />
+  </Folder>
+</Solution>

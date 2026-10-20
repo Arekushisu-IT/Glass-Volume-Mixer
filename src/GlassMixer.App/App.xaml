@@ -1,0 +1,9 @@
+﻿<Application x:Class="GlassMixer.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnExplicitShutdown">
+    <!-- No StartupUri: App.xaml.cs creates the window and the tray icon itself.
+         OnExplicitShutdown: hiding the window must not quit a tray app. -->
+    <Application.Resources>
+    </Application.Resources>
+</Application>

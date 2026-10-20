@@ -1,0 +1,14 @@
+# Store text with LF in the repo and check it out with the line endings Windows tools expect.
+* text=auto
+*.cs text eol=crlf
+*.xaml text eol=crlf
+*.csproj text eol=crlf
+*.slnx text eol=crlf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.iss text eol=crlf
+
+# Binary files: never touch their bytes.
+*.ico binary
+*.png binary
+*.woff2 binary
