@@ -17,7 +17,7 @@
     <!-- WinForms is used only for the tray icon: WPF has no NotifyIcon of its own. -->
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>GlassMixer</AssemblyName>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Product>Glass Mixer</Product>
     <Description>Per-app volume mixer with a glass window</Description>
     <!-- Per-monitor DPI awareness: sharp text on every monitor (see app.manifest). -->

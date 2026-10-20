@@ -19,14 +19,13 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-
         // Any exception nobody caught on the UI thread: write it down instead of crashing.
         DispatcherUnhandledException += (_, args) =>
         {
             Log.Write("Unhandled: " + args.Exception);
             args.Handled = true;
         };
-        Log.Write("Glass Mixer starting");
+        Log.Write($"Glass Mixer {typeof(App).Assembly.GetName().Version} starting: args=[{string.Join(' ', e.Args)}] folder={Environment.CurrentDirectory}");
 
         bool atSignIn = e.Args.Contains(StartWithWindows.Argument);
 
@@ -46,7 +45,6 @@ public partial class App : Application
             Shutdown();
             return;
         }
-
         _window = new MainWindow();
         _tray = new TrayIcon(onToggle: _window.Toggle, onQuit: Quit);
         _window.StatusChanged += _tray.SetTooltip;
@@ -56,7 +54,7 @@ public partial class App : Application
         // to the UI thread (Dispatcher) before touching the window.
         _showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, ShowSignalName);
         _showWait = ThreadPool.RegisterWaitForSingleObject(_showSignal,
-            (_, _) => Dispatcher.BeginInvoke(() => _window?.ShowNearTray()), null, Timeout.Infinite, executeOnlyOnce: false);
+            (_, _) => Dispatcher.BeginInvoke(() => _window?.OpenFull()), null, Timeout.Infinite, executeOnlyOnce: false);
 
         // If "Start with Windows" points at a copy that was moved or deleted, point it here.
         StartWithWindows.RepairPath();
@@ -69,7 +67,7 @@ public partial class App : Application
         }
         else
         {
-            _window.ShowNearTray();
+            _window.OpenFull(); // opened by you (Start menu, desktop icon): show the whole mixer
         }
     }
 

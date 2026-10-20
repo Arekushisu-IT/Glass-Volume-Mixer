@@ -33,13 +33,16 @@ $link.IconLocation = "$exe,0"
 $link.Description = 'Per-app volume mixer'
 $link.Save()
 
+# Desktop shortcut, the same as the Start menu one.
+Copy-Item $shortcut (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Glass Mixer.lnk') -Force
+
 # Settings > Apps entry. HKCU = this user only.
 $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\GlassMixer'
 New-Item $key -Force | Out-Null
 $sizeKb = [int]((Get-ChildItem $target -Recurse -File | Measure-Object Length -Sum).Sum / 1KB)
 $values = @{
     DisplayName     = 'Glass Mixer'
-    DisplayVersion  = (Get-Item $exe).VersionInfo.ProductVersion
+    DisplayVersion  = (Get-Item $exe).VersionInfo.ProductVersion.Split('+')[0]   # drop the "+commit" build suffix
     Publisher       = 'Arekushisu-IT'
     DisplayIcon     = $exe
     InstallLocation = $target
@@ -50,11 +53,10 @@ Set-ItemProperty $key EstimatedSize $sizeKb -Type DWord
 Set-ItemProperty $key NoModify 1 -Type DWord
 Set-ItemProperty $key NoRepair 1 -Type DWord
 
-# If "Start with Windows" was on for an older copy, point it at this one.
+# Start with Windows: on, and always pointing at this installed copy (an older entry may
+# point at a build folder that gets deleted). Turn it off from the tray icon's menu.
 $run = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
-if ((Get-ItemProperty $run -ErrorAction SilentlyContinue).GlassMixer) {
-    Set-ItemProperty $run GlassMixer "`"$exe`" --startup"
-}
+Set-ItemProperty $run GlassMixer "`"$exe`" --startup"
 
 Write-Host 'Installed. Starting Glass Mixer...'
 Start-Process $exe

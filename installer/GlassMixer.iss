@@ -2,7 +2,7 @@
 ; Build the release first (tools/build-release.ps1), then compile this file with Inno Setup.
 ; The PowerShell installer next to this file does the same job without extra tools.
 
-#define AppVersion "1.0.0"
+#define AppVersion "1.0.1"
 
 [Setup]
 AppId={{6F3B9C52-2E1D-4C6A-9C0B-5B7E2A9D41F3}
@@ -26,9 +26,11 @@ Source: "..\dist\GlassMixer-{#AppVersion}-win-x64\app\*"; DestDir: "{app}"; Flag
 
 [Icons]
 Name: "{group}\Glass Mixer"; Filename: "{app}\GlassMixer.exe"
+Name: "{userdesktop}\Glass Mixer"; Filename: "{app}\GlassMixer.exe"; Tasks: desktopicon
 
 [Tasks]
-Name: "startup"; Description: "Start with Windows"; Flags: unchecked
+Name: "startup"; Description: "Start with Windows"
+Name: "desktopicon"; Description: "Create a desktop icon"
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "GlassMixer"; \

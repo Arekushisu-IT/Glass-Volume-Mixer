@@ -7,6 +7,7 @@ Start-Sleep -Milliseconds 500
 
 Remove-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' GlassMixer -ErrorAction SilentlyContinue
 Remove-Item (Join-Path ([Environment]::GetFolderPath('Programs')) 'Glass Mixer.lnk') -ErrorAction SilentlyContinue
+Remove-Item (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Glass Mixer.lnk') -ErrorAction SilentlyContinue
 Remove-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\GlassMixer' -Recurse -ErrorAction SilentlyContinue
 
 # This script lives inside the folder it deletes, so the folder is renamed first and a

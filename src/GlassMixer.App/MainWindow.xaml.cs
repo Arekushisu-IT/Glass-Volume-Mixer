@@ -324,10 +324,20 @@ public partial class MainWindow : Window
         }
         Show();
         Activate();
-        if (firstTime && _saved?.Minimized == true) SetMinimized(true);
         _saved = null;
         KeepOnScreen();
         Post(new { type = "shown" }); // the page plays the mockup's pop-in
+    }
+
+    /// <summary>
+    /// For when you open Glass Mixer yourself (Start menu, desktop icon, or opening it again
+    /// while it runs hidden): always the full panel, never the small minimized bar, which
+    /// is easy to miss, especially on another monitor.
+    /// </summary>
+    public void OpenFull()
+    {
+        ShowNearTray();
+        if (_minimized) SetMinimized(false);
     }
 
     // A quick first check of a saved position; KeepOnScreen then fixes anything that's

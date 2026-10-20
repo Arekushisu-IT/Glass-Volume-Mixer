@@ -22,16 +22,17 @@ The design follows the interactive mockup in [`docs/mockup.html`](docs/mockup.ht
 Download `GlassMixer-<version>-win-x64.zip` from the Releases page, unzip it, and double-click
 **Install Glass Mixer.cmd**.
 - It installs for your user only, with no admin rights needed.
-- It adds a Start Menu shortcut and appears in **Settings > Apps**, where you can uninstall it.
+- It adds a **desktop icon** and a Start Menu shortcut, and appears in **Settings > Apps**, where you can uninstall it.
+- It turns on **Start with Windows**. Turn it off from the tray icon's right-click menu.
 - It needs the Microsoft Edge WebView2 Runtime, which ships with Windows 11.
 
 ## Use it
 
 - **Ctrl+Alt+V** shows or hides the window. **Ctrl+Alt+M** minimizes it to the small bar.
 - **✕ hides it; it keeps running in the tray.** Open it again by:
+  - double-clicking the **desktop icon** or opening **Glass Mixer** from the Start menu (it always opens the full mixer), or
   - clicking the tray icon (it may be under the **^** arrow by the clock), or
-  - pressing **Ctrl+Alt+V**, or
-  - opening **Glass Mixer** from the Start menu.
+  - pressing **Ctrl+Alt+V**.
 - To always see the tray icon: **Settings > Personalization > Taskbar > Other system tray icons > Glass Mixer: On**.
 - Right-click the tray icon for **Start with Windows** and **Quit**. After Quit, open it from the Start menu.
 - Drag a slider, or scroll the mouse wheel over a row, to change that app's real volume.
@@ -147,6 +148,7 @@ Read them in this order. Each one adds one idea.
   ```
 - **Page DevTools:** in a Debug build, click the window and press **F12**. You get the same Elements and Console tabs as in Edge.
 - **UI only:** open `src/GlassMixer.App/ui/index.html` in Edge to work on the HTML and CSS with the fake host.
+- **Testing from a packaged app's terminal** (like the Claude desktop app, which is an MSIX package): Windows quietly redirects that terminal's writes to `AppData` and `HKCU` into the package's private copy. That covers everything it starts, so an install from there only exists inside that copy. Run installers through Explorer instead, so they land in your real Windows: `explorer.exe "path\to\Install Glass Mixer.cmd"`.
 
 ### 7. Matching the mockup
 
