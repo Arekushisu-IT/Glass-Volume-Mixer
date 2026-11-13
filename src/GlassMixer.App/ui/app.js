@@ -7,7 +7,7 @@
     host -> page   { type: 'state', deviceId, deviceName, devices: [{ id, name }], masterVolume, masterMuted,
                      apps: [{ id, name, volume, muted, isSystem, active, exe, icon }] }
                    { type: 'levels', master, apps: { id: peak } }      about 30 per second
-                   { type: 'minimized', on }   { type: 'pinned', on }
+                   { type: 'minimized', on }   { type: 'shown' }   { type: 'backdrop', light }
 
     page -> host   { type: 'ready' }   { type: 'log', text }
                    { type: 'setVolume', id, value }   value 0.0 to 1.0, id 'master' for the device
@@ -86,7 +86,7 @@ const touchedAt = new Map(); // id -> when the user last moved that slider here
 const meterState = new Map(); // id -> { level, peak, peakT }
 let lastCountUpdate = 0;
 
-const prefs = { mode: 'list', clear: 70, blur: 20, meters: true, size: 'regular', profiles: {}, profile: null };
+const prefs = { mode: 'list', clear: 70, blur: 20, meters: true, pinned: false, size: 'regular', profiles: {}, profile: null };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('glass-mixer') || '{}')); } catch { /* first run */ }
 const savePrefs = () => { try { localStorage.setItem('glass-mixer', JSON.stringify(prefs)); } catch { /* not critical */ } };
 
@@ -369,14 +369,28 @@ function applyProfile(key) {
 }
 
 /* ---------- appearance ---------- */
+// Adaptive contrast. The host reports how bright the screen behind the mixer is (0 to 1).
+// Light text on glass over a white page is unreadable, so the tint is never allowed to
+// drop below what the text needs: nothing over a dark background, more as it gets brighter.
+// In the light theme (dark text) it works the other way round.
+let backdropLight = null;
+const darkTheme = matchMedia('(prefers-color-scheme: dark)');
+function tintNeeded() {
+  if (backdropLight === null) return 0;
+  const clash = darkTheme.matches ? backdropLight : 1 - backdropLight; // how much the backdrop fights the text
+  return clamp((clash - 0.3) / 0.7, 0, 1) * 0.74;
+}
+
 function applyLook() {
-  document.documentElement.style.setProperty('--glass-a', (0.92 - prefs.clear / 100 * 0.88).toFixed(3));
+  const chosen = 0.92 - prefs.clear / 100 * 0.88; // the Transparency slider
+  document.documentElement.style.setProperty('--glass-a', Math.max(chosen, tintNeeded()).toFixed(3));
   document.body.classList.toggle('no-meters', !prefs.meters);
   const clear = $('#opt-clear');
   clear.value = prefs.clear;
   clear.style.setProperty('--p', pos(prefs.clear));
   $('#val-clear').textContent = `${prefs.clear}%`;
   $('#opt-meters').checked = prefs.meters;
+  $('#btn-pin').setAttribute('aria-pressed', prefs.pinned);
   const blur = $('#opt-blur');
   blur.value = prefs.blur;
   blur.style.setProperty('--p', pos(prefs.blur / 40 * 100));
@@ -451,7 +465,7 @@ host.addEventListener('message', (e) => {
   else if (msg.type === 'levels') onLevels(msg);
   else if (msg.type === 'minimized') setMinimizedView(msg.on);
   else if (msg.type === 'shown') popIn();
-  else if (msg.type === 'pinned') $('#btn-pin').setAttribute('aria-pressed', msg.on);
+  else if (msg.type === 'backdrop') { backdropLight = msg.light; applyLook(); }
 });
 
 /* ---------- user input ---------- */
@@ -493,7 +507,7 @@ document.addEventListener('click', (e) => {
   }
   else if (b.id === 'mode-list') { setMode('list'); savePrefs(); }
   else if (b.id === 'mode-board') { setMode('board'); savePrefs(); }
-  else if (b.id === 'btn-pin') { const on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', on); send({ type: 'pin', on }); }
+  else if (b.id === 'btn-pin') { prefs.pinned = !prefs.pinned; applyLook(); savePrefs(); send({ type: 'pin', on: prefs.pinned }); }
   else if (b.id === 'btn-look') { const open = b.getAttribute('aria-expanded') !== 'true'; b.setAttribute('aria-expanded', open); $('#look').hidden = !open; }
   else if (b.id === 'btn-min') send({ type: 'minimize', on: true });
   else if (b.id === 'btn-restore') send({ type: 'minimize', on: false });
@@ -589,6 +603,7 @@ applyLook();
 setMode(prefs.mode);
 drawChips();
 send({ type: 'blur', radius: prefs.blur });
+send({ type: 'pin', on: prefs.pinned }); // off unless you pinned it: then it stays above other windows
 requestAnimationFrame(animateMeters);
 popIn(); // the first open: the host's "shown" arrives before the page is listening
 send({ type: 'ready' });

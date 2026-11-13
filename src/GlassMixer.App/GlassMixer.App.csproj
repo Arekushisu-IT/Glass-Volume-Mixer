@@ -10,14 +10,18 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- The Windows version in the name unlocks the Windows Runtime APIs (Windows.UI.Composition)
+         that GlassBackdrop.cs uses for the blur. -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <!-- GlassBackdrop.cs builds one small COM object by hand, which needs pointers. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <!-- WinForms is used only for the tray icon: WPF has no NotifyIcon of its own. -->
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>GlassMixer</AssemblyName>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <Product>Glass Mixer</Product>
     <Description>Per-app volume mixer with a glass window</Description>
     <!-- Per-monitor DPI awareness: sharp text on every monitor (see app.manifest). -->

@@ -3,39 +3,37 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="Glass Mixer"
-        Width="428" Height="644" MinWidth="304" MinHeight="264"
-        ShowInTaskbar="False" Topmost="True" ResizeMode="CanResize" WindowStyle="None"
+        Width="444" Height="660" MinWidth="320" MinHeight="280"
+        ShowInTaskbar="False" Topmost="False" ResizeMode="CanResize" WindowStyle="None"
         WindowStartupLocation="Manual"
         Background="Transparent">
 
-    <!-- WindowChrome removes the title bar. The 12px margin around the panel
-         (see Margin below) is the window's resize border. -->
+    <!-- WindowChrome removes the title bar. The 20px margin around the panel
+         (MainWindow.Inset) is the window's resize border and the room the shadow needs. -->
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="0"
                       GlassFrameThickness="0"
-                      ResizeBorderThickness="12"
+                      ResizeBorderThickness="20"
                       UseAeroCaptionButtons="False"
                       CornerRadius="0" />
     </WindowChrome.WindowChrome>
 
-    <!-- Layers, bottom to top. The window itself is fully transparent (Native.SetGlass),
-         and everything here is drawn with anti-aliased edges, so the 18px corners are smooth. -->
+    <!-- Layers, bottom to top. The window itself is fully transparent (Native.SetGlass).
+           1. this WPF content: only the soft shadow
+           2. the blur, a composition visual added in code (GlassBackdrop.cs)
+           3. the web page -->
     <Grid>
-        <!-- 1. A soft shadow in the transparent margin, like the mockup's. -->
-        <Border x:Name="Shadow" Margin="12" CornerRadius="18" Background="Black" Visibility="Collapsed">
+        <!-- The shadow of a black rounded rectangle. The rectangle itself hides under the blur;
+             it is 1px smaller than the panel so its edge can never peek out at the corners.
+             BlurRadius + ShadowDepth must stay within the 20px margin, or the shadow is cut
+             off in a straight line with square corners. -->
+        <Border x:Name="Shadow" Margin="21" CornerRadius="17" Background="Black" Visibility="Collapsed">
             <Border.Effect>
-                <DropShadowEffect BlurRadius="34" ShadowDepth="10" Direction="270" Opacity="0.45" RenderingBias="Performance" />
+                <DropShadowEffect BlurRadius="15" ShadowDepth="4" Direction="270" Opacity="0.5" RenderingBias="Quality" />
             </Border.Effect>
         </Border>
 
-        <!-- 2. The blurred copy of what's behind the window (BackdropBlur.cs),
-                clipped to the panel's rounded shape in MainWindow.xaml.cs. -->
-        <Grid x:Name="BackdropHost" Margin="12">
-            <Image x:Name="Backdrop" Stretch="Fill" Visibility="Collapsed"
-                   HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False" />
-        </Grid>
-
-        <!-- 3. The web page: the mixer UI itself. -->
-        <wv2:WebView2 x:Name="Web" Margin="12" />
+        <!-- The web page: the mixer UI itself. -->
+        <wv2:WebView2 x:Name="Web" Margin="20" />
     </Grid>
 </Window>

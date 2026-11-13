@@ -35,6 +35,11 @@
   }
 }
 
+/* Registering --glass-a as a number lets it animate, so the tint eases in and out
+   when adaptive contrast changes it (see tintNeeded in app.js) instead of jumping. */
+@property --glass-a { syntax: '<number>'; inherits: true; initial-value: .3; }
+:root { transition: --glass-a .25s ease; }
+
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; background: transparent; overflow: hidden; }
@@ -229,7 +234,7 @@ input[type="range"]:focus-visible { outline-offset: 4px; border-radius: 6px; }
 }
 .fader .knob::after { content: ""; position: absolute; left: 6px; right: 6px; top: 50%; height: 2px; margin-top: -1px; border-radius: 1px; background: var(--fill); }
 .is-muted .fader { --fill: var(--fg-3); }
-.strip-name { width: 56px; text-align: center; font-size: 11px; font-weight: 600; color: var(--fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.strip-name { width: 100%; padding: 0 4px; text-align: center; font-size: 11px; font-weight: 600; color: var(--fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .strip .icon-btn { width: 28px; height: 28px; }
 
 /* footer */
@@ -277,8 +282,15 @@ kbd {
 @container mixer (min-width: 840px) {
   .list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+/* Hide hints before they get cut off mid-word or wrap onto a second line. */
+@container mixer (max-width: 430px) {
+  .p-title span { display: none; }
+}
+@container mixer (max-width: 385px) {
+  .foot-keys { display: none; }
+}
 @container mixer (max-width: 340px) {
-  .p-title span, .foot-keys, .app-sub { display: none; }
+  .app-sub { display: none; }
   .app-main { gap: 8px; }
   .chip { padding: 3px 8px; }
   .look-row { grid-template-columns: 78px 1fr 40px; }

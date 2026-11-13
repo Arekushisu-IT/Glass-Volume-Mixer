@@ -37,7 +37,7 @@ Download `GlassMixer-<version>-win-x64.zip` from the Releases page, unzip it, an
 - Right-click the tray icon for **Start with Windows** and **Quit**. After Quit, open it from the Start menu.
 - Drag a slider, or scroll the mouse wheel over a row, to change that app's real volume.
 - ▾ on an app opens its output device and balance. The sliders icon opens appearance settings.
-- While the blur is above 0px, the mixer is left out of screenshots and screen sharing (see `BackdropBlur.cs`).
+- The **pin** button keeps the mixer above other windows. It's off by default, so the mixer behaves like any other window.
 
 ## Build it
 
@@ -79,7 +79,8 @@ src/
   GlassMixer.App/        the desktop app
     App.xaml.cs            startup: one copy only, tray icon, never quits on close
     MainWindow.xaml(.cs)   the glass window, WebView2, and the message bridge
-    BackdropBlur.cs        the adjustable blur behind the window
+    GlassBackdrop.cs       the adjustable blur behind the window
+    BackdropProbe.cs       measures the brightness behind the mixer, for readable text
     Native.cs              Windows API calls: transparency, hotkeys, window drag
     TrayIcon.cs            the tray icon, its tooltip and menu
     StartWithWindows.cs    the "Start with Windows" setting
@@ -154,16 +155,23 @@ Read them in this order. Each one adds one idea.
 
 - `ui/` is a port of the mockup's own HTML, CSS and JS. The fake data was replaced by `state` and `levels` messages from C#.
 - **A truly transparent window** (`Native.SetGlass`): `DwmEnableBlurBehindWindow` with an empty region tells Windows to respect the window's transparent pixels. Extending the frame instead (`DwmExtendFrameIntoClientArea`) only works with Windows 11's own Mica or Acrylic backdrops. Without one, Windows paints the frame flat grey, which was the first version's bug.
-- **The adjustable blur** (`BackdropBlur.cs`): Windows' own blur strength is fixed, so the app draws the blur itself about 30 times a second.
-  1. `SetWindowDisplayAffinity(EXCLUDEFROMCAPTURE)` leaves the mixer out of screen captures.
-  2. `BitBlt` copies the screen under the window, which now shows what's behind it.
-  3. WPF's `BlurEffect` blurs that copy on the GPU at the slider's radius.
+- **The adjustable blur** (`GlassBackdrop.cs`): drawn by Windows itself, with `Windows.UI.Composition`, the layer the Start menu and taskbar use.
+  1. `CreateDesktopWindowTarget` adds a composition "visual" (a rectangle) to the window, under the web page.
+  2. It's painted with a **host backdrop brush**: a live view of whatever is behind the window.
+  3. A Direct2D **Gaussian blur** effect sits on that brush; the slider sets its strength.
+  4. A rounded **geometric clip** gives it the panel's anti-aliased 18px corners.
 
-  Side effect: while the blur is on, the mixer doesn't appear in screenshots or screen sharing. At 0px it's off.
-- **Smooth 18px corners and the shadow** (`MainWindow.xaml`): the window is a transparent rectangle 12px bigger than the panel. WPF draws a soft `DropShadowEffect` in that margin, and the blur is clipped with an anti-aliased rounded `RectangleGeometry`. The margin is also the resize border. An earlier version clipped the window with `SetWindowRgn`, but regions can't be anti-aliased, so the corners were stepped.
+  Everything runs on the GPU inside Windows, so the mixer appears normally in screenshots and screen recordings.
+  - **The first version** copied the screen 30 times a second (`BitBlt`) and blurred the copy. To copy what was behind it, the app had to hide itself from all screen capture, so it vanished from screenshots and broke screen recorders.
+  - **The hand-built COM object** at the bottom of that file: the Compositor asks an effect for `IGraphicsEffectD2D1Interop`. The Win2D library normally supplies it; here it's a small table of function pointers.
+- **Smooth 18px corners and the shadow** (`MainWindow.xaml`): the window is a transparent rectangle 20px bigger than the panel on every side. WPF draws a soft `DropShadowEffect` in that margin, and the margin is also the resize border. Two lessons from earlier versions:
+  - Clipping the window with `SetWindowRgn` gives stepped corners, because regions can't be anti-aliased.
+  - A shadow needs room. With only 12px of margin it was cut off in a straight line, which looked like a sharp corner beside the smooth one.
+- **Readable on any background** (`BackdropProbe.cs`, `tintNeeded` in `app.js`): twice a second the app reads four one-pixel lines at the window's edge and averages their brightness. The page then keeps the glass tint at least as strong as its text needs: nothing extra over a dark background, more over a bright one.
+- **The pin** is a saved preference, off by default. Unpinned, Ctrl+Alt+V brings the mixer forward if it's behind other windows instead of hiding it.
 - **Sharp text on every monitor** (`app.manifest`): `PerMonitorV2` DPI awareness. Without it, Windows draws the app at one scale and stretches it on a monitor with different scaling, which blurs the text.
 - **Smooth meters** (`app.js`, `animateMeters`): levels arrive about 30 times a second. The page animates toward the latest one at the screen's frame rate, with the mockup's fast rise, slow fall and peak hold.
-- **Debugging the blur**: screenshots can't see the window while the blur is on. In a Debug build, the page message `{ type: 'dumpBackdrop' }` saves what WPF draws to `%LOCALAPPDATA%\GlassMixer\backdrop.png`.
+- **Driving the page from a script** (how the screenshots in testing were made): start the app with the environment variable `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9229`. Any DevTools-protocol client can then run JavaScript in the page, for example to click buttons or change settings.
 - **Balance** (`Core/SessionChannels.cs`): every session has an `IChannelAudioVolume` with one level per channel (0 left, 1 right). It's a documented interface NAudio doesn't wrap, so this file declares the COM interfaces itself. That's a good model for calling any COM API.
 - **Per-app output** (`Core/AppOutput.cs`): uses `AudioPolicyConfig`, the private Windows Runtime class behind Settings > Volume mixer > Output device. Apps usually switch when they next start a sound. If a Windows update ever breaks it, the Output menu turns itself off.
 - **Sessions from every device** (`AudioService.Refresh`): an app you send to another device stays in the list.
@@ -183,10 +191,8 @@ Read them in this order. Each one adds one idea.
 
 ## Next steps (good exercises)
 
-1. **Faster capture.** `BitBlt` is simple but copies through the CPU. `Windows.Graphics.Capture` keeps frames on the GPU and only sends new ones when the screen changes.
-2. **"Now playing" titles**, like the mockup's "Now playing · Kundiman Sessions": the WinRT `GlobalSystemMediaTransportControlsSessionManager` gives the song or video title per app.
-3. **Follow the theme live.** Listen for `WM_SETTINGCHANGE` in `WndProc` and call `PrepareGlassWindow` again.
-4. **Open on the screen with the tray.** Today it uses the primary screen's work area.
-5. **Start with Windows.** Add a value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
-6. **Bundle the fonts.** They load from Google Fonts today, so offline the app falls back to Segoe UI. Put the font files in `ui/fonts` and use `@font-face`.
-7. **Installer.** Publish with `dotnet publish -c Release -r win-x64 --self-contained`, then package it with Inno Setup or MSIX.
+1. **"Now playing" titles**, like the mockup's "Now playing · Kundiman Sessions": the WinRT `GlobalSystemMediaTransportControlsSessionManager` gives the song or video title per app.
+2. **A shadow drawn by the Compositor too.** `Compositor.CreateDropShadow()` on the blur visual would replace the WPF shadow layer.
+3. **Open on the screen with the tray.** The first launch uses the primary screen's work area.
+4. **Code signing.** A signed installer removes the "Windows protected your PC" warning.
+5. **A classic `setup.exe`.** `installer/GlassMixer.iss` is ready for Inno Setup.

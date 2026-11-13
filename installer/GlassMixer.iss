@@ -2,7 +2,7 @@
 ; Build the release first (tools/build-release.ps1), then compile this file with Inno Setup.
 ; The PowerShell installer next to this file does the same job without extra tools.
 
-#define AppVersion "1.0.1"
+#define AppVersion "1.0.2"
 
 [Setup]
 AppId={{6F3B9C52-2E1D-4C6A-9C0B-5B7E2A9D41F3}

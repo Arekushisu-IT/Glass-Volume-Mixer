@@ -12,14 +12,14 @@ namespace GlassMixer.App;
 
 /// <summary>
 /// The mixer window. It does three jobs:
-///   1. makes itself see-through glass (Native.SetGlass) and draws the blur (BackdropBlur),
+///   1. makes itself see-through glass (Native.SetGlass) with a blur behind the panel (GlassBackdrop),
 ///   2. shows the HTML UI from the ui folder in WebView2,
 ///   3. passes JSON messages between that UI and AudioService.
 /// </summary>
 public partial class MainWindow : Window
 {
     const int HotkeyToggle = 1, HotkeyMinimize = 2;
-    const double Inset = 12;        // transparent border around the panel: shadow + resize grip
+    const double Inset = 20;        // transparent border around the panel: shadow + resize grip
     const double CornerRadius = 18;  // same as the mockup; the page's --radius must match
     const double MiniWidth = 500 + 2 * Inset, MiniHeight = 52 + 2 * Inset;
     const double FullMinHeight = 240 + 2 * Inset;
@@ -32,12 +32,15 @@ public partial class MainWindow : Window
     readonly DispatcherTimer _refreshTimer = new() { Interval = TimeSpan.FromSeconds(1.5) };
     readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
     readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromSeconds(1) };
-    readonly BackdropBlur _backdrop;
+    readonly DispatcherTimer _probeTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
+    readonly GlassBackdrop _glass = new();
 
     IntPtr _hwnd;
     string _lastState = "", _status = "";
     int _tick, _statusTick;
-    bool _pinned = true, _minimized, _placed, _quitting;
+    bool _pinned, _minimized, _placed, _quitting;
+    double _blur; // the slider's value, in pixels at 100% scaling
+    double _backdropLight = -1; // last brightness sent to the page
     Size _fullSize;
     DateTime _hiddenAt;
     WindowSettings? _saved; // last run's position and size, used the first time the window opens
@@ -55,22 +58,22 @@ public partial class MainWindow : Window
             Height = _saved.Height;
         }
         _fullSize = new Size(Width, Height);
-        _backdrop = new BackdropBlur(this, Backdrop);
 
         LocationChanged += (_, _) => QueueSave();
         SizeChanged += (_, _) => QueueSave();
         _saveTimer.Tick += (_, _) => { _saveTimer.Stop(); SaveWindow(); };
         _statusTimer.Tick += (_, _) => UpdateStatus();
         _statusTimer.Start();
+        _probeTimer.Tick += (_, _) => ProbeBackdrop();
 
         // Where the page draws nothing, show the glass behind it instead of white.
         Web.DefaultBackgroundColor = System.Drawing.Color.Transparent;
 
         SourceInitialized += OnSourceInitialized;
         Loaded += async (_, _) => await InitWebViewAsync();
-        Deactivated += (_, _) => { if (!_pinned) HideMixer(); };
         Closing += OnClosing;
-        BackdropHost.SizeChanged += (_, _) => ClipBackdrop();
+        SizeChanged += (_, _) => UpdateGlass();
+        DpiChanged += (_, _) => UpdateGlass(); // moved to a screen with different scaling
 
         _meterTimer.Tick += (_, _) => OnMeterTick();
         _refreshTimer.Tick += (_, _) => { _audio.Refresh(); SendState(); };
@@ -88,38 +91,38 @@ public partial class MainWindow : Window
 
         Native.PrepareGlassWindow(_hwnd, Native.IsDarkTheme());
         Native.SetGlass(_hwnd, GlassStyle.Clear); // fully transparent; the page then asks for its blur strength
+        _glass.Attach(_hwnd);
 
         const uint mods = Native.MOD_CONTROL | Native.MOD_ALT | Native.MOD_NOREPEAT;
         Native.RegisterHotKey(_hwnd, HotkeyToggle, mods, 'V');
         Native.RegisterHotKey(_hwnd, HotkeyMinimize, mods, 'M');
     }
 
-    // Cuts the blurred picture to the panel's rounded shape. WPF draws geometry clips
-    // anti-aliased, which is what makes the corners smooth.
-    void ClipBackdrop() =>
-        BackdropHost.Clip = new RectangleGeometry(
-            new Rect(0, 0, BackdropHost.ActualWidth, BackdropHost.ActualHeight), CornerRadius, CornerRadius);
-
-    /// <summary>
-    /// Blur strength from the page's slider, in pixels. 0 means Clear: no blur, no screen capture.
-    /// If this Windows can't hide a window from capture, fall back to Windows' fixed blur.
-    /// </summary>
+    /// <summary>Blur strength from the page's slider, in pixels. 0 means Clear: no blur at all.</summary>
     void SetBlur(double radius)
     {
-        if (radius <= 0)
+        _blur = Math.Max(0, radius);
+        if (!_glass.IsAttached)
         {
-            _backdrop.Stop();
-            Shadow.Visibility = Visibility.Collapsed;
-            Native.SetGlass(_hwnd, GlassStyle.Clear);
+            // An older Windows without the composition blur: use Windows' fixed-strength blur.
+            Native.SetGlass(_hwnd, _blur > 0 ? GlassStyle.Blur : GlassStyle.Clear);
             return;
         }
-        if (_backdrop.IsRunning) _backdrop.SetRadius(radius);
-        else if (!_backdrop.Start(_hwnd, radius))
-        {
-            Native.SetGlass(_hwnd, GlassStyle.Blur);
-            return;
-        }
-        Shadow.Visibility = Visibility.Visible;
+        Shadow.Visibility = _blur > 0 ? Visibility.Visible : Visibility.Collapsed;
+        UpdateGlass();
+    }
+
+    // Keeps the blur exactly under the panel. Composition works in physical pixels,
+    // WPF in scaled units, so everything is multiplied by the screen's scaling.
+    void UpdateGlass()
+    {
+        if (!_glass.IsAttached || ActualWidth <= 0) return;
+        double scale = VisualTreeHelper.GetDpi(this).DpiScaleX;
+        float inset = (float)Math.Round(Inset * scale);
+        _glass.SetBounds(inset, inset,
+            (float)Math.Round(ActualWidth * scale) - 2 * inset, (float)Math.Round(ActualHeight * scale) - 2 * inset,
+            (float)(CornerRadius * scale));
+        _glass.SetBlur((float)(_blur * scale));
     }
 
     // Win32 messages that WPF doesn't wrap arrive here. We only need global hotkeys.
@@ -195,9 +198,10 @@ public partial class MainWindow : Window
                 Log.Write("page ready");
                 SendState(force: true);
                 Post(new { type = "minimized", on = _minimized });
-                Post(new { type = "pinned", on = _pinned });
                 _meterTimer.Start();
                 _refreshTimer.Start();
+                _backdropLight = -1; // send the brightness again to the freshly loaded page
+                _probeTimer.Start();
                 break;
             case "setVolume":
                 _audio.SetVolume(Id(), msg.GetProperty("value").GetSingle());
@@ -230,18 +234,14 @@ public partial class MainWindow : Window
             case "blur": // radius in pixels, 0 to 40
                 SetBlur(msg.GetProperty("radius").GetDouble());
                 break;
-#if DEBUG
-            case "dumpBackdrop": // debugging: while the blur is on, screenshots can't see the window,
-                DumpBackdrop();  // so save what WPF draws (shadow + blur, not the page) to a file
-                break;
-#endif
+
             case "size": // the panel's size; the window adds its transparent margin
                 ResizeAnchored(msg.GetProperty("w").GetDouble() + 2 * Inset, msg.GetProperty("h").GetDouble() + 2 * Inset);
                 break;
             case "minimize":
                 SetMinimized(msg.GetProperty("on").GetBoolean());
                 break;
-            case "pin":
+            case "pin": // the pin button: keep the mixer above other windows, or let it behave like any window
                 _pinned = msg.GetProperty("on").GetBoolean();
                 Topmost = _pinned;
                 break;
@@ -250,23 +250,6 @@ public partial class MainWindow : Window
                 break;
         }
     }
-
-#if DEBUG
-    void DumpBackdrop()
-    {
-        var root = (FrameworkElement)Content;
-        double scale = VisualTreeHelper.GetDpi(this).DpiScaleX;
-        var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(
-            (int)(root.ActualWidth * scale), (int)(root.ActualHeight * scale), 96 * scale, 96 * scale, PixelFormats.Pbgra32);
-        bitmap.Render(root);
-        var png = new System.Windows.Media.Imaging.PngBitmapEncoder();
-        png.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
-        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GlassMixer", "backdrop.png");
-        using var file = File.Create(path);
-        png.Save(file);
-        Log.Write("backdrop saved to " + path);
-    }
-#endif
 
     // ---------- C# -> page ----------
 
@@ -291,6 +274,16 @@ public partial class MainWindow : Window
         _lastState = json;
         Web.CoreWebView2?.PostWebMessageAsJson(json);
         Log.Write($"state sent: {snap.Apps.Count} apps on {snap.DeviceName}");
+    }
+
+    // Adaptive contrast: tell the page how bright the screen behind the mixer is,
+    // whenever that changes noticeably. The page then adds tint only if its text needs it.
+    void ProbeBackdrop()
+    {
+        if (!IsVisible) return;
+        if (BackdropProbe.Sample(_hwnd) is not double light || Math.Abs(light - _backdropLight) < 0.03) return;
+        _backdropLight = light;
+        Post(new { type = "backdrop", light = Math.Round(light, 3) });
     }
 
     void OnMeterTick()
@@ -387,13 +380,14 @@ public partial class MainWindow : Window
 
     public void Toggle()
     {
-        if (IsVisible) HideMixer();
-        // Clicking the tray icon first takes focus away (which may hide the window),
-        // then sends the click. Ignore a click that comes right after that hide.
+        // Open but behind other windows (it isn't pinned on top): bring it forward instead of hiding it.
+        if (IsVisible && !IsActive && !_pinned) Activate();
+        else if (IsVisible) HideMixer();
+        // Ignore a tray click that arrives right after a hide.
         else if ((DateTime.Now - _hiddenAt).TotalMilliseconds > 300) ShowNearTray();
     }
 
-    /// <summary>Raised when the window hides (✕, Ctrl+Alt+V, clicking away). The app keeps running in the tray.</summary>
+    /// <summary>Raised when the window hides (✕ or Ctrl+Alt+V). The app keeps running in the tray.</summary>
     public event Action? HiddenToTray;
 
     void HideMixer()
@@ -456,9 +450,9 @@ public partial class MainWindow : Window
         _refreshTimer.Stop();
         _statusTimer.Stop();
         _saveTimer.Stop();
+        _probeTimer.Stop();
         Native.UnregisterHotKey(_hwnd, HotkeyToggle);
         Native.UnregisterHotKey(_hwnd, HotkeyMinimize);
-        _backdrop.Dispose();
         _audio.Dispose();
     }
 }

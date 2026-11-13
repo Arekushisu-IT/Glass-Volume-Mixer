@@ -15,7 +15,7 @@
     <header class="p-head" id="p-head">
       <div class="p-title"><h1>Volume</h1><span>Drag to move · double-click to dock</span></div>
       <div class="p-actions">
-        <button class="icon-btn" id="btn-pin" aria-pressed="true" title="Keep on top" aria-label="Keep on top"></button>
+        <button class="icon-btn" id="btn-pin" aria-pressed="false" title="Keep on top of other windows" aria-label="Keep on top of other windows"></button>
         <button class="icon-btn" id="btn-look" aria-expanded="false" aria-controls="look" title="Appearance" aria-label="Appearance"></button>
         <button class="icon-btn" id="btn-min" title="Minimize (Ctrl+Alt+M)" aria-label="Minimize volume mixer"></button>
         <button class="icon-btn" id="btn-close" title="Hide" aria-label="Hide volume mixer"></button>
@@ -37,7 +37,7 @@
 
       <section class="look" id="look" hidden aria-label="Appearance">
         <label class="look-row" for="opt-clear">Transparency <input type="range" id="opt-clear" min="0" max="100"><span class="val" id="val-clear"></span></label>
-        <label class="look-row" for="opt-blur" title="While the blur is on, the mixer is left out of screenshots and screen sharing. Set it to 0 to show it.">Background blur <input type="range" id="opt-blur" min="0" max="40"><span class="val" id="val-blur"></span></label>
+        <label class="look-row" for="opt-blur">Background blur <input type="range" id="opt-blur" min="0" max="40"><span class="val" id="val-blur"></span></label>
         <div class="look-row"><span>Panel size</span>
           <div class="seg span" role="group" aria-label="Panel size">
             <button data-size="compact" aria-pressed="false">Compact</button>
