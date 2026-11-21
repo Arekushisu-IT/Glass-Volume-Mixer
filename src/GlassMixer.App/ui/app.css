@@ -381,6 +381,19 @@ body:not([data-edge="top"]) .isl-mic { top: 9px; right: auto; left: 50%; transla
 .isl-dot { width: 9px; height: 9px; flex: none; border-radius: 50%; background: var(--mic); box-shadow: 0 0 10px var(--mic); animation: mic-pulse 1.2s ease-in-out infinite alternate; }
 @keyframes mic-pulse { from { opacity: .45; } }
 
+/* ---------- at the top: small (about 640 × 320) ---------- */
+body[data-edge="top"] .p-head { padding: 10px 10px 4px 16px; }
+body[data-edge="top"] .p-scroll { padding: 0 10px 10px; }
+body[data-edge="top"] .p-inner { gap: 8px; }
+body[data-edge="top"] .master { padding: 8px 10px 8px 12px; gap: 4px; }
+body[data-edge="top"] .np { padding: 8px 10px 8px 8px; gap: 10px; grid-template-columns: 46px minmax(0, 1fr) auto; }
+body[data-edge="top"] .np-art { width: 46px; height: 46px; border-radius: 10px; }
+body[data-edge="top"] .np-ctrl .np-play { width: 34px; height: 34px; }
+body[data-edge="top"] .np-progress { margin-top: 2px; }
+body[data-edge="top"] .mic { padding: 6px 10px 6px 6px; }
+body[data-edge="top"] .app { padding: 6px 4px 6px 6px; }
+.island { cursor: grab; }
+
 /* ---------- coming and going ---------- */
 /* The panel slides in from its edge; the pill pops in. */
 .panel.in { animation: in-top .26s cubic-bezier(.2, .9, .25, 1); }

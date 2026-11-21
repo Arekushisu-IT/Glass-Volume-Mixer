@@ -383,8 +383,17 @@ kbd {
               translate .36s cubic-bezier(.2, .9, .25, 1), opacity .28s ease, box-shadow .2s;
 }
 .panel.dock-top {
-  width: min(860px, calc(100% - 32px)); max-height: min(520px, calc(100% - 76px));
+  width: min(640px, calc(100% - 32px)); max-height: min(320px, calc(100% - 76px));
 }
+/* At the top it stays small: tighter spacing so the main parts fit in 320px; the rest scrolls. */
+.panel.dock-top .p-head { padding: 10px 10px 4px 16px; }
+.panel.dock-top .p-scroll { gap: 8px; padding: 0 10px 10px; }
+.panel.dock-top .master { padding: 8px 10px 8px 12px; gap: 4px; }
+.panel.dock-top .np { padding: 8px 10px 8px 8px; gap: 10px; grid-template-columns: 46px minmax(0, 1fr) auto; }
+.panel.dock-top .np-art { width: 46px; height: 46px; border-radius: 10px; }
+.panel.dock-top .np-ctrl .np-play { width: 34px; height: 34px; }
+.panel.dock-top .mic { padding: 6px 10px 6px 6px; }
+.panel.dock-top .app { padding: 6px 4px 6px 6px; }
 .panel.dock-left, .panel.dock-right {
   width: min(330px, calc(100% - 32px)); max-height: calc(100% - 92px);
 }
@@ -1303,7 +1312,7 @@ kbd {
     dockHint.hidden = !t;
     if (!t) return;
     const d = desk.getBoundingClientRect();
-    const w = t.edge === 'top' ? Math.min(860, d.width - 32) : Math.min(330, d.width - 32);
+    const w = t.edge === 'top' ? Math.min(640, d.width - 32) : Math.min(330, d.width - 32);
     const h = t.edge === 'top' ? 0 : Math.min(panel.offsetHeight, d.height - TASKBAR - 2 * GAP);
     const p = place(t.edge, t.along, w, h), s = dockHint.style;
     dockHint.dataset.edge = t.edge;

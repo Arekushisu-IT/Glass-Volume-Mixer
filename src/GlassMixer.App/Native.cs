@@ -251,6 +251,13 @@ static class Native
         return new Monitor(R(info.rcMonitor), R(info.rcWork), scale);
     }
 
+    /// <summary>Reads a RECT that a window message points to, such as WM_MOVING's lParam.</summary>
+    public static PxRect ReadRect(IntPtr pointer)
+    {
+        var r = Marshal.PtrToStructure<RECT>(pointer);
+        return new PxRect(r.Left, r.Top, r.Right, r.Bottom);
+    }
+
     public static PxRect WindowRect(IntPtr hwnd) =>
         GetWindowRect(hwnd, out var r) ? new PxRect(r.Left, r.Top, r.Right, r.Bottom) : default;
 

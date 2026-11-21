@@ -28,6 +28,7 @@ public partial class MainWindow : Window
     const double Inset = 20;       // transparent border around the panel or pill: room for the shadow
     const double Gap = 12;         // the panel's distance from the screen edge, as in the mockup
     const double PillGap = 6;      // the pill's distance from the screen edge
+    const int PillHoverMs = 400;   // rest this long on the pill to open the mixer: time enough to press and drag it instead
 
     // JsonSerializerDefaults.Web writes camelCase names: MasterVolume -> masterVolume.
     static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -71,7 +72,6 @@ public partial class MainWindow : Window
     DateTime? _leftAt, _pillHoverAt, _edgeAt;
     DateTime _lastPillWheel;
     FullScreen.Kind _fullScreen;
-    (string Edge, double Along, Native.Monitor Monitor)? _dragTarget;
 
     /// <summary>A one-line summary for the tray tooltip, e.g. "Glass Mixer · Headphones 66%".</summary>
     public event Action<string>? StatusChanged;
@@ -213,8 +213,8 @@ public partial class MainWindow : Window
         if (edge == "top")
         {
             // Wide and short: apps spread into columns, so it covers only a band of the screen.
-            w = Math.Min(860, availW - 32);
-            h = Math.Min(_contentHeight, Math.Min(520, availH - 76));
+            w = Math.Min(640, availW - 32);
+            h = Math.Min(_contentHeight, Math.Min(320, availH - 76));
         }
         else
         {
@@ -335,7 +335,7 @@ public partial class MainWindow : Window
                 _busy = msg.GetProperty("on").GetBoolean();
                 break;
 
-            case "drag": // the header: move it to another spot or edge
+            case "drag": // the panel's header or the pill: move it to another spot or edge
                 Drag();
                 break;
             case "content": // the panel's natural height: the window fits it, up to the screen's limit
@@ -500,10 +500,11 @@ public partial class MainWindow : Window
 
         // The pill (without its transparent margin): rest on it for a moment to open the mixer.
         var pill = Inflate(win, -inset);
-        if (pill.Contains(x, y) && (now - _lastPillWheel).TotalMilliseconds > 900)
+        // Pressing the mouse button on it means you're about to drag it: don't open then.
+        if (pill.Contains(x, y) && (now - _lastPillWheel).TotalMilliseconds > 900 && !Native.LeftButtonDown())
         {
             _pillHoverAt ??= now;
-            if ((now - _pillHoverAt.Value).TotalMilliseconds > 280) Peek(activate: false);
+            if ((now - _pillHoverAt.Value).TotalMilliseconds > PillHoverMs) Peek(activate: false);
         }
         else _pillHoverAt = null;
 
@@ -553,11 +554,12 @@ public partial class MainWindow : Window
 
     // ---------- moving it: drag the header to another spot or edge ----------
 
+    // The panel's header, or the pill itself: both move the one spot the mixer lives at,
+    // so the mixer opens where you put the pill, and the pill sits where you put the mixer.
     void Drag()
     {
-        if (_shape != Shape.Panel) return;
+        if (_moving) return;
         _moving = true;
-        _dragTarget = null;
         _hint ??= new DockHint();
         try
         {
@@ -570,40 +572,43 @@ public partial class MainWindow : Window
             _moving = false;
             _hint.Hide();
         }
-        var target = _dragTarget ?? Target();
-        if (target is null) return;
-        _settings.Edge = target.Value.Edge;
-        _settings.Along = target.Value.Along;
-        _monitor = target.Value.Monitor;
+        // Where it is now that you've let go. (Not the last hint: an earlier version used that,
+        // and it could be the spot where the drag began, so the mixer jumped back to the middle.)
+        var target = Target(Native.WindowRect(_hwnd));
+        Log.Write($"drop: {_shape} at the {target.Edge} edge, {target.Along:P0} along");
+        _settings.Edge = target.Edge;
+        _settings.Along = target.Along;
+        _monitor = target.Monitor;
         var m = _monitor.Bounds;
         (_settings.MonitorX, _settings.MonitorY, _settings.HasMonitor) = (m.Left + m.Width / 2, m.Top + m.Height / 2, true);
         _settings.Save();
         Post(new { type = "edge", edge = _settings.Edge });
         PlaceWindow();
-        _hoveredSinceOpen = CursorInside();
+        if (_shape == Shape.Panel) _hoveredSinceOpen = CursorInside();
+        else _lastPillWheel = DateTime.Now; // the pointer rests on the pill now: don't open the mixer for that
     }
 
     // Which edge the pointer is nearest, on the monitor it's on, and how far along that edge
-    // the middle of the mixer is (0 to 1).
-    (string Edge, double Along, Native.Monitor Monitor)? Target()
+    // the middle of the window is (0 to 1). The pill's middle is also the mixer's middle.
+    (string Edge, double Along, Native.Monitor Monitor) Target(Native.PxRect window)
     {
         var (x, y) = Native.CursorPos();
         var m = Native.MonitorAt(x, y);
         var work = m.Work;
         var dist = new Dictionary<string, int> { ["top"] = y - work.Top, ["left"] = x - work.Left, ["right"] = work.Right - x };
         string edge = dist.MinBy(kv => kv.Value).Key;
-        var r = Native.WindowRect(_hwnd);
-        double cx = (r.Left + r.Right) / 2.0, cy = (r.Top + r.Bottom) / 2.0;
+        double cx = (window.Left + window.Right) / 2.0, cy = (window.Top + window.Bottom) / 2.0;
         double along = edge == "top"
             ? Math.Clamp((cx - work.Left) / work.Width, 0, 1)
             : Math.Clamp((cy - work.Top) / work.Height, 0, 1);
         return (edge, along, m);
     }
 
-    void ShowHint()
+    // window: where Windows is about to put the window (WM_MOVING's rectangle).
+    void ShowHint(Native.PxRect window)
     {
-        _dragTarget = Target();
-        if (_dragTarget is not { } t || _hint is null) return;
+        var t = Target(window);
+        if (_hint is null) return;
         var p = PanelRect(t.Edge, t.Along, t.Monitor);
         var work = t.Monitor.Work;
         int a = (int)Math.Round(3 * t.Monitor.Scale), b = (int)Math.Round(7 * t.Monitor.Scale);
@@ -627,7 +632,8 @@ public partial class MainWindow : Window
                 handled = true;
                 break;
             case Native.WM_MOVING when _moving:
-                ShowHint();
+                // lParam holds the rectangle the window is moving to; GetWindowRect still has the old one.
+                ShowHint(Native.ReadRect(lParam));
                 break;
             case Native.WM_DISPLAYCHANGE: // a monitor was added, removed or changed resolution
                 Dispatcher.BeginInvoke(() =>

@@ -12,7 +12,7 @@ The design follows the interactive mockup in [`docs/mockup.html`](docs/mockup.ht
 
 - A volume, mute, live level meter, **balance** and **output device** for every app playing sound
 - Master volume, and switching the Windows default output device
-- **Lives at a screen edge:** drag it along the top, or to the left or right side. Wide and short at the top, narrow on the sides
+- **Lives at a screen edge:** drag it along the top, or to the left or right side. Small and wide at the top (about 640 × 320), narrow on the sides
 - **The pill:** when your mouse leaves, the mixer tucks away into a small pill at its edge, showing what's playing, live level bars and the volume. For a moment it grows to show what changed
 - **Now Playing:** the song or video, cover art, progress, and play/pause, next and previous, for any app that uses the Windows media controls
 - **Microphone in use:** which app is recording, an orange dot on the pill, the mic level and a mute button
@@ -34,7 +34,8 @@ Download `GlassMixer-<version>-win-x64.zip` from the Releases page, unzip it, an
 ## Use it
 
 - **Drag the header** to move the mixer. Let go and it snaps to the nearest edge (top, left or right) of that screen, at the spot along it where you let go. It remembers the spot.
-- **Move your mouse away** and it tucks into the pill. **Rest on the pill**, or push the mouse against that screen edge, to bring it back. Scroll over the pill to change the volume without opening it.
+- **Move your mouse away** and it tucks into the pill. **Rest on the pill**, click it, or push the mouse against that screen edge, to bring it back. Scroll over the pill to change the volume without opening it.
+- **Drag the pill** to move it along its edge, or to another edge. The mixer opens wherever the pill is: they share one spot.
 - **Ctrl+Alt+V**, the **tray icon** and the **tuck button** (the arrow in the header) open or tuck it. **Esc** tucks it. **Ctrl+Alt+K** mutes the microphone.
 - The appearance settings (the sliders icon) have **Tuck away when the mouse leaves** (turn it off to keep the mixer open until you tuck it) and **Show activity on the pill**.
 - **Automatic profiles** need a saved mix: click an empty (dashed) Meeting, Gaming or Focus chip to save the current mix, then tick its rule. A call means "an app is using the microphone". A game means a full-screen app that isn't a browser or video player.
@@ -196,7 +197,7 @@ Read them in this order. Each one adds one idea.
 
 - **One window, two shapes** (`MainWindow.xaml.cs`): the panel and the pill are the same window and the same page. Swapping takes one round trip, so nothing ever shows at the wrong size: C# says `shape`, the page clears what it shows and answers `shapeReady`, C# resizes and moves the window, then says `placed` and the page shows the new shape.
 - **Physical pixels** (`Native.cs`, "screen edges"): placement uses `MonitorFromPoint`, `GetMonitorInfo`, `GetDpiForMonitor` and `SetWindowPos` instead of WPF's `Left`/`Top`, because WPF's scaled units don't line up across two monitors with different scaling (100% and 125%, for example).
-- **Snapping to an edge**: the header still starts Windows' own move loop (`BeginSystemMove`). `WM_MOVING` arrives while you drag, so the drop hint follows the pointer; when the loop returns, the nearest edge of the monitor under the pointer wins.
+- **Snapping to an edge**: the header (or the pill) still starts Windows' own move loop (`BeginSystemMove`). `WM_MOVING` arrives while you drag; its `lParam` is the rectangle the window is *about to* move to, which is what the drop hint uses (`GetWindowRect` still has the old one at that moment). When the loop returns, the spot is read from where the window really is: 1.1.0 used the last hint instead, which could be the starting spot, so the mixer jumped back to the middle of the edge.
 - **Click-through hint** (`DockHint.cs`): a layered WPF window with `WS_EX_TRANSPARENT`, so the mouse passes straight through it.
 - **Tucking**: a 60 ms timer compares the cursor (`GetCursorPos`) with the window. 650 ms outside the panel tucks it; 280 ms on the pill, or a touch on the screen edge, opens it. An open drop-down list (`busy`) or a held mouse button stops it from tucking.
 - **The window fits its content**: the page reports its natural height (`content`), so a short mixer never shows empty glass. Measured from an inner wrapper, because a scroll box's `scrollHeight` never shrinks below its own height.

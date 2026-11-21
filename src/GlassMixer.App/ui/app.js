@@ -701,7 +701,25 @@ function drawPill(now) {
 }
 
 // Hovering the pill opens the mixer (the host watches the mouse); clicking opens it too.
-island.addEventListener('click', () => send({ type: 'peek', click: true }));
+// Press and drag it to move it along the edge, or to another edge: the mixer then opens there.
+let pillPress = null, pillDraggedAt = 0;
+island.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  pillPress = { x: e.clientX, y: e.clientY };
+  island.setPointerCapture(e.pointerId);
+});
+island.addEventListener('pointermove', (e) => {
+  if (!pillPress || Math.hypot(e.clientX - pillPress.x, e.clientY - pillPress.y) < 4) return;
+  pillPress = null;
+  island.releasePointerCapture(e.pointerId);
+  pillDraggedAt = performance.now();
+  send({ type: 'drag' });
+});
+island.addEventListener('pointerup', () => { pillPress = null; });
+island.addEventListener('click', () => {
+  if (performance.now() - pillDraggedAt < 800) return; // the end of a drag, not a click
+  send({ type: 'peek', click: true });
+});
 island.addEventListener('wheel', (e) => {
   e.preventDefault();
   setVolume('master', volOf('master') + (e.deltaY < 0 ? 2 : -2));
