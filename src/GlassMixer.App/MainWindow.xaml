@@ -3,17 +3,18 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="Glass Mixer"
-        Width="444" Height="660" MinWidth="320" MinHeight="280"
-        ShowInTaskbar="False" Topmost="False" ResizeMode="CanResize" WindowStyle="None"
-        WindowStartupLocation="Manual"
+        Width="900" Height="560"
+        ShowInTaskbar="False" Topmost="True" ResizeMode="NoResize" WindowStyle="None"
+        WindowStartupLocation="Manual" ShowActivated="False"
         Background="Transparent">
 
-    <!-- WindowChrome removes the title bar. The 20px margin around the panel
-         (MainWindow.Inset) is the window's resize border and the room the shadow needs. -->
+    <!-- WindowChrome removes the title bar. The window has no resize border: its size comes
+         from the screen edge it lives on. The 20px margin around the panel (MainWindow.Inset)
+         is the room the shadow needs. -->
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="0"
                       GlassFrameThickness="0"
-                      ResizeBorderThickness="20"
+                      ResizeBorderThickness="0"
                       UseAeroCaptionButtons="False"
                       CornerRadius="0" />
     </WindowChrome.WindowChrome>
@@ -21,7 +22,7 @@
     <!-- Layers, bottom to top. The window itself is fully transparent (Native.SetGlass).
            1. this WPF content: only the soft shadow
            2. the blur, a composition visual added in code (GlassBackdrop.cs)
-           3. the web page -->
+           3. the web page: the panel, or the pill while the mixer is tucked away -->
     <Grid>
         <!-- The shadow of a black rounded rectangle. The rectangle itself hides under the blur;
              it is 1px smaller than the panel so its edge can never peek out at the corners.

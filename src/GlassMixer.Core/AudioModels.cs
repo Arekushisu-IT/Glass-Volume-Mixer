@@ -22,6 +22,12 @@ public sealed record AudioApp(
     float Balance,
     string? OutputId);
 
+/// <summary>
+/// The default microphone. <paramref name="Users"/> are the apps recording from any microphone
+/// right now (a call in Discord, Teams, Zoom...), the ones Windows shows the mic icon for.
+/// </summary>
+public sealed record MicState(bool Available, string Name, bool Muted, IReadOnlyList<string> Users);
+
 /// <summary>An output device that is plugged in and enabled.</summary>
 public sealed record OutputDevice(string Id, string Name);
 

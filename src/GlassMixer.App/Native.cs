@@ -200,6 +200,78 @@ static class Native
         }
     }
 
+    // ---------- screen edges: monitors, the cursor and placing windows ----------
+    // All in physical pixels. WPF's Left/Top are scaled units that don't line up across
+    // monitors with different scaling, so the edge placement works below WPF.
+
+    public const int WM_ENTERSIZEMOVE = 0x0231, WM_MOVING = 0x0216;
+
+    /// <summary>A rectangle in physical screen pixels.</summary>
+    public readonly record struct PxRect(int Left, int Top, int Right, int Bottom)
+    {
+        public int Width => Right - Left;
+        public int Height => Bottom - Top;
+        public bool Contains(int x, int y) => x >= Left && x < Right && y >= Top && y < Bottom;
+    }
+
+    /// <summary>A monitor: its whole area, its work area (minus the taskbar) and its scaling (1.0 = 100%).</summary>
+    public readonly record struct Monitor(PxRect Bounds, PxRect Work, double Scale);
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct POINT { public int X, Y; }
+
+    [DllImport("user32.dll")]
+    static extern bool GetCursorPos(out POINT point);
+
+    [DllImport("user32.dll")]
+    static extern IntPtr MonitorFromPoint(POINT point, int flags);
+
+    [DllImport("shcore.dll")]
+    static extern int GetDpiForMonitor(IntPtr monitor, int dpiType, out uint dpiX, out uint dpiY);
+
+    [DllImport("user32.dll")]
+    static extern short GetAsyncKeyState(int key);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+    static extern IntPtr GetWindowLongPtr(IntPtr hwnd, int index);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+    static extern IntPtr SetWindowLongPtr(IntPtr hwnd, int index, IntPtr value);
+
+    public static (int X, int Y) CursorPos() => GetCursorPos(out var p) ? (p.X, p.Y) : (0, 0);
+
+    /// <summary>The monitor at a point, or the nearest one.</summary>
+    public static Monitor MonitorAt(int x, int y)
+    {
+        var handle = MonitorFromPoint(new POINT { X = x, Y = y }, MONITOR_DEFAULTTONEAREST);
+        var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+        GetMonitorInfo(handle, ref info);
+        double scale = GetDpiForMonitor(handle, 0, out uint dpi, out _) == 0 ? dpi / 96.0 : 1.0;
+        static PxRect R(RECT r) => new(r.Left, r.Top, r.Right, r.Bottom);
+        return new Monitor(R(info.rcMonitor), R(info.rcWork), scale);
+    }
+
+    public static PxRect WindowRect(IntPtr hwnd) =>
+        GetWindowRect(hwnd, out var r) ? new PxRect(r.Left, r.Top, r.Right, r.Bottom) : default;
+
+    /// <summary>Moves and sizes a window without activating it or changing its place in the stack.</summary>
+    public static void Place(IntPtr hwnd, PxRect r) =>
+        SetWindowPos(hwnd, IntPtr.Zero, r.Left, r.Top, r.Width, r.Height, SWP_NOZORDER | SWP_NOACTIVATE);
+
+    public static bool LeftButtonDown() => (GetAsyncKeyState(0x01) & 0x8000) != 0;
+
+    /// <summary>
+    /// For the drop hint: mouse clicks go straight through it, it never takes focus,
+    /// and it stays out of Alt+Tab.
+    /// </summary>
+    public static void MakeClickThrough(IntPtr hwnd)
+    {
+        const int GWL_EXSTYLE = -20;
+        const long WS_EX_TRANSPARENT = 0x20, WS_EX_TOOLWINDOW = 0x80, WS_EX_LAYERED = 0x80000, WS_EX_NOACTIVATE = 0x8000000;
+        long style = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();
+        SetWindowLongPtr(hwnd, GWL_EXSTYLE, new IntPtr(style | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_LAYERED | WS_EX_NOACTIVATE));
+    }
+
     /// <summary>Reads Settings > Personalization > Colors > "Choose your app mode".</summary>
     public static bool IsDarkTheme()
     {

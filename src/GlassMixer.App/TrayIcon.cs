@@ -24,26 +24,12 @@ sealed class TrayIcon : IDisposable
         startWithWindows.CheckedChanged += (_, _) => StartWithWindows.SetEnabled(startWithWindows.Checked);
 
         var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Show or hide   Ctrl+Alt+V", null, (_, _) => onToggle());
+        menu.Items.Add("Open or tuck away   Ctrl+Alt+V", null, (_, _) => onToggle());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add(startWithWindows);
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Quit Glass Mixer", null, (_, _) => onQuit());
         _icon.ContextMenuStrip = menu;
-    }
-
-    /// <summary>
-    /// The first time the mixer is closed, a Windows notification explains that it's
-    /// still running and how to open it again. A small marker file remembers it was shown.
-    /// </summary>
-    public void ShowStillRunningHintOnce()
-    {
-        var marker = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GlassMixer", "hint-shown");
-        if (File.Exists(marker)) return;
-        _icon.ShowBalloonTip(6000, "Glass Mixer is still running",
-            "Open it again from this tray icon, with Ctrl+Alt+V, or from the Start menu. To close it completely, right-click the icon and choose Quit.",
-            Forms.ToolTipIcon.Info);
-        try { File.WriteAllText(marker, DateTime.Now.ToString("O")); } catch (IOException) { }
     }
 
     /// <summary>Updates the hover text, e.g. "Glass Mixer · Headphones 66%". Windows allows 127 characters.</summary>

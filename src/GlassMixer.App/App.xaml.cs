@@ -48,7 +48,6 @@ public partial class App : Application
         _window = new MainWindow();
         _tray = new TrayIcon(onToggle: _window.Toggle, onQuit: Quit);
         _window.StatusChanged += _tray.SetTooltip;
-        _window.HiddenToTray += _tray.ShowStillRunningHintOnce;
 
         // Listen for the signal above. The wait runs on a background thread, so hop back
         // to the UI thread (Dispatcher) before touching the window.
@@ -59,16 +58,9 @@ public partial class App : Application
         // If "Start with Windows" points at a copy that was moved or deleted, point it here.
         StartWithWindows.RepairPath();
 
-        if (atSignIn)
-        {
-            // Started by Windows at sign-in: wait in the tray. EnsureHandle creates the
-            // window without showing it, so the Ctrl+Alt+V hotkey works straight away.
-            new System.Windows.Interop.WindowInteropHelper(_window).EnsureHandle();
-        }
-        else
-        {
-            _window.OpenFull(); // opened by you (Start menu, desktop icon): show the whole mixer
-        }
+        // Started by Windows at sign-in: just the pill at the screen edge.
+        // Opened by you (Start menu, desktop icon): the whole mixer, at its edge.
+        _window.Start(open: !atSignIn);
     }
 
     void Quit()

@@ -7,78 +7,90 @@
   <link rel="stylesheet" href="fonts/fonts.css">
   <link rel="stylesheet" href="app.css">
 </head>
-<body>
-  <section class="panel" id="panel" aria-label="Volume mixer">
-    <div class="grip" id="grip" title="Drag to resize" aria-hidden="true"></div>
-    <span class="size-badge" id="size-badge" hidden></span>
-
+<body data-edge="top">
+  <!-- The mixer. It lives at a screen edge; drag the header to move it along that edge or to another one. -->
+  <section class="panel" id="panel" aria-label="Volume mixer" hidden>
     <header class="p-head" id="p-head">
-      <div class="p-title"><h1>Volume</h1><span>Drag to move · double-click to dock</span></div>
+      <div class="p-title"><h1>Volume</h1><span>Drag to move along the edge</span></div>
       <div class="p-actions">
-        <button class="icon-btn" id="btn-pin" aria-pressed="false" title="Keep on top of other windows" aria-label="Keep on top of other windows"></button>
         <button class="icon-btn" id="btn-look" aria-expanded="false" aria-controls="look" title="Appearance" aria-label="Appearance"></button>
-        <button class="icon-btn" id="btn-min" title="Minimize (Ctrl+Alt+M)" aria-label="Minimize volume mixer"></button>
-        <button class="icon-btn" id="btn-close" title="Hide" aria-label="Hide volume mixer"></button>
+        <button class="icon-btn" id="btn-tuck" title="Tuck away (Ctrl+Alt+V)" aria-label="Tuck away"></button>
       </div>
     </header>
 
     <div class="p-scroll" id="p-scroll">
-      <section class="master" data-id="master">
-        <label class="dev" for="dev"><span id="dev-icon"></span><span class="dev-wrap"><select id="dev" aria-label="Output device"></select><span id="dev-chev"></span></span></label>
-        <div class="master-row">
-          <button class="icon-btn mute" data-mute="master" aria-pressed="false" aria-label="Mute all"></button>
-          <div>
-            <input type="range" class="vol" id="vol-master" min="0" max="100" aria-label="Master volume">
-            <div class="meter"><i></i><b></b></div>
+      <div class="p-inner" id="p-inner">
+        <section class="master" data-id="master">
+          <label class="dev" for="dev"><span id="dev-icon"></span><span class="dev-wrap"><select id="dev" aria-label="Output device"></select><span id="dev-chev"></span></span></label>
+          <div class="master-row">
+            <button class="icon-btn mute" data-mute="master" aria-pressed="false" aria-label="Mute all"></button>
+            <div>
+              <input type="range" class="vol" id="vol-master" min="0" max="100" aria-label="Master volume">
+              <div class="meter"><i></i><b></b></div>
+            </div>
+            <span class="val vval" id="val-master">0</span>
           </div>
-          <span class="val vval" id="val-master">0</span>
-        </div>
-      </section>
+        </section>
 
-      <section class="look" id="look" hidden aria-label="Appearance">
-        <label class="look-row" for="opt-clear">Transparency <input type="range" id="opt-clear" min="0" max="100"><span class="val" id="val-clear"></span></label>
-        <label class="look-row" for="opt-blur">Background blur <input type="range" id="opt-blur" min="0" max="40"><span class="val" id="val-blur"></span></label>
-        <div class="look-row"><span>Panel size</span>
-          <div class="seg span" role="group" aria-label="Panel size">
-            <button data-size="compact" aria-pressed="false">Compact</button>
-            <button data-size="regular" aria-pressed="false">Regular</button>
-            <button data-size="wide" aria-pressed="false">Wide</button>
+        <div class="media" id="media">
+          <section class="np" id="np" aria-label="Now playing" hidden>
+            <div class="np-art" id="np-art"></div>
+            <div class="np-info">
+              <button class="np-src" id="np-src" title="Switch to another app that's playing"></button>
+              <span class="np-title" id="np-title"></span>
+              <span class="np-artist" id="np-artist"></span>
+              <div class="np-progress" id="np-progress"><span id="np-time">0:00</span><div class="np-bar"><i id="np-fill"></i></div><span id="np-len">0:00</span></div>
+            </div>
+            <div class="np-ctrl">
+              <button class="icon-btn" id="np-prev" aria-label="Previous"></button>
+              <button class="icon-btn np-play" id="np-play" aria-label="Pause"></button>
+              <button class="icon-btn" id="np-next" aria-label="Next"></button>
+            </div>
+          </section>
+
+          <section class="mic" id="mic" aria-label="Microphone" hidden>
+            <button class="icon-btn mic-mute" id="mic-mute" aria-pressed="false" aria-label="Mute microphone"></button>
+            <div>
+              <div class="mic-top"><span class="mic-name" id="mic-name">Microphone</span><span class="mic-use" id="mic-use">Not in use</span></div>
+              <div class="meter"><i id="mic-level"></i></div>
+            </div>
+          </section>
+        </div>
+
+        <section class="look" id="look" hidden aria-label="Appearance">
+          <label class="look-row" for="opt-clear">Transparency <input type="range" id="opt-clear" min="0" max="100"><span class="val" id="val-clear"></span></label>
+          <label class="look-row" for="opt-blur">Background blur <input type="range" id="opt-blur" min="0" max="40"><span class="val" id="val-blur"></span></label>
+          <label class="look-check" for="opt-tuck"><input type="checkbox" id="opt-tuck"> Tuck away when the mouse leaves</label>
+          <label class="look-check" for="opt-activity"><input type="checkbox" id="opt-activity"> Show activity on the pill</label>
+          <span class="look-sub">Automatic profiles</span>
+          <label class="look-check" for="auto-meeting"><input type="checkbox" id="auto-meeting"> Meeting while a call is on (an app is using the mic)<span class="look-note" data-note="meeting"></span></label>
+          <label class="look-check" for="auto-gaming"><input type="checkbox" id="auto-gaming"> Gaming while a game is open<span class="look-note" data-note="gaming"></span></label>
+          <label class="look-check" for="auto-focus"><input type="checkbox" id="auto-focus"> Focus on weekdays, 9:00 to 17:00<span class="look-note" data-note="focus"></span></label>
+        </section>
+
+        <div class="bar">
+          <div class="chips" id="chips" role="group" aria-label="Sound profiles"></div>
+          <div class="seg" role="group" aria-label="Layout">
+            <button id="mode-list" aria-pressed="true">List</button>
+            <button id="mode-board" aria-pressed="false">Mixer</button>
           </div>
         </div>
-        <label class="look-check" for="opt-meters"><input type="checkbox" id="opt-meters"> Show live level meters</label>
-      </section>
 
-      <div class="bar">
-        <div class="chips" id="chips" role="group" aria-label="Sound profiles"></div>
-        <div class="seg" role="group" aria-label="Layout">
-          <button id="mode-list" aria-pressed="true">List</button>
-          <button id="mode-board" aria-pressed="false">Mixer</button>
-        </div>
+        <div class="section-label"><span>Apps</span><span id="app-count"></span></div>
+        <ul class="list" id="list"></ul>
+        <div class="board" id="board" hidden></div>
+        <p class="empty" id="empty" hidden>No app is playing sound right now. Start music or a video and it shows up here.</p>
       </div>
-
-      <div class="section-label"><span>Apps</span><span id="app-count"></span></div>
-      <ul class="list" id="list"></ul>
-      <div class="board" id="board" hidden></div>
-      <p class="empty" id="empty" hidden>No app is playing sound right now. Start music or a video and it shows up here.</p>
     </div>
-
-    <footer class="p-foot">
-      <span class="live" id="foot-live">Output</span>
-      <span class="foot-keys"><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>V</kbd> shows or hides</span>
-    </footer>
   </section>
 
-  <div class="mini" id="mini" data-id="master" hidden>
-    <span class="mini-drag" id="mini-drag" title="Drag to move"></span>
-    <button class="icon-btn mute" data-mute="master" aria-pressed="false" aria-label="Mute all"></button>
-    <div class="mini-vol">
-      <input type="range" class="vol" id="vol-mini" min="0" max="100" aria-label="Master volume">
-      <div class="meter"><i></i><b></b></div>
-    </div>
-    <span class="val vval" id="val-mini">0</span>
-    <div class="mini-apps" id="mini-apps"></div>
-    <button class="icon-btn" id="btn-restore" title="Expand (Ctrl+Alt+M)" aria-label="Expand volume mixer"></button>
-  </div>
+  <!-- The pill: the mixer tucked away at its edge. Compact: what's playing, live sound bars and
+       the volume. For a moment it grows to show what changed. -->
+  <button class="island" id="island" aria-label="Show the volume mixer" hidden>
+    <span class="isl-compact"><span class="isl-art" id="isl-art" hidden></span><span class="isl-bars"><i></i><i></i><i></i><i></i><i></i></span><span class="isl-val" id="isl-val">0</span></span>
+    <span class="isl-live" id="isl-live"></span>
+    <span class="isl-mic" id="isl-mic" hidden></span>
+  </button>
 
   <div class="toast" id="toast" role="status" hidden></div>
 

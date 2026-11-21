@@ -40,11 +40,36 @@ public sealed class AudioService : IDisposable
         public string? OutputId { get; set; }            // null: follows the Windows default device
     }
 
+    MMDevice? _mic;                 // the default microphone, if there is one
+    MicState _micState = new(false, "", false, []);
+
     public AudioService()
     {
         _device = _enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+        Watch(_device);
         Refresh();
     }
+
+    /// <summary>
+    /// The master volume or mute changed, by anyone: the keyboard's volume keys, the Windows
+    /// flyout, another app, or Glass Mixer itself. Raised on a background thread.
+    /// </summary>
+    public event Action<float, bool>? MasterChanged;
+
+    // Windows calls this back on every change to the device's volume (IAudioEndpointVolumeCallback).
+    void Watch(MMDevice device)
+    {
+        try { device.AudioEndpointVolume.OnVolumeNotification += OnMasterNotification; }
+        catch (COMException) { /* the device just went away; the next Refresh picks the new one */ }
+    }
+
+    void Unwatch(MMDevice device)
+    {
+        try { device.AudioEndpointVolume.OnVolumeNotification -= OnMasterNotification; }
+        catch (COMException) { }
+    }
+
+    void OnMasterNotification(AudioVolumeNotificationData data) => MasterChanged?.Invoke(data.MasterVolume, data.Muted);
 
     public string DeviceName => _device.FriendlyName;
 
@@ -73,7 +98,13 @@ public sealed class AudioService : IDisposable
     public void Refresh()
     {
         var current = _enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-        if (current.ID != _device.ID) _device = current;
+        if (current.ID != _device.ID)
+        {
+            Unwatch(_device);
+            _device = current;
+            Watch(_device);
+        }
+        RefreshMic();
 
         var devices = _enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active).ToList();
         _devices = devices.Select(d => new OutputDevice(d.ID, d.FriendlyName)).ToList();
@@ -171,6 +202,55 @@ public sealed class AudioService : IDisposable
         foreach (var s in g.Sessions) Safe(() => s.SimpleAudioVolume.Mute = muted);
     }
 
+    // ---------- microphone ----------
+
+    /// <summary>The default microphone and which apps are recording. Updated by Refresh.</summary>
+    public MicState Mic => _micState;
+
+    /// <summary>How loud the default microphone is right now, 0.0 to 1.0 (only while an app records).</summary>
+    public float MicPeak => _mic is null ? 0 : Safe(() => _mic.AudioMeterInformation.MasterPeakValue);
+
+    public void SetMicMute(bool muted)
+    {
+        if (_mic is null) return;
+        Safe(() => _mic.AudioEndpointVolume.Mute = muted);
+        RefreshMic();
+    }
+
+    // Recording apps have an active session on a capture device, just as playing apps have
+    // one on an output device. That's what the Windows privacy mic icon is based on too.
+    void RefreshMic()
+    {
+        try
+        {
+            var current = _enumerator.HasDefaultAudioEndpoint(DataFlow.Capture, Role.Console)
+                ? _enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Console) : null;
+            if (current?.ID != _mic?.ID) _mic = current;
+
+            var users = new List<string>();
+            foreach (var device in _enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active))
+            {
+                var manager = device.AudioSessionManager;
+                manager.RefreshSessions();
+                var sessions = manager.Sessions;
+                for (int i = 0; i < sessions.Count; i++)
+                {
+                    var session = sessions[i];
+                    if (Safe(() => session.State) != AudioSessionState.AudioSessionStateActive || session.IsSystemSoundsSession) continue;
+                    var name = Identify(session).Name;
+                    if (!users.Contains(name)) users.Add(name);
+                }
+            }
+            _micState = _mic is null
+                ? new MicState(false, "", false, users)
+                : new MicState(true, _mic.FriendlyName, Safe(() => _mic.AudioEndpointVolume.Mute), users);
+        }
+        catch (COMException)
+        {
+            // A microphone was unplugged mid-way. Keep the last state; the next refresh tries again.
+        }
+    }
+
     /// <summary>Works out which program owns a session and what to call it.</summary>
     static (string Id, string Name, int Pid, string? Path, bool IsSystem) Identify(AudioSessionControl session)
     {
@@ -227,6 +307,7 @@ public sealed class AudioService : IDisposable
 
     public void Dispose()
     {
+        Unwatch(_device);
         _groups.Clear();
         _enumerator.Dispose();
     }

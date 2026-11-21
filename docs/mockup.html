@@ -64,7 +64,7 @@
 html { height: 100%; box-sizing: border-box; }
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body { height: 100%; background: var(--wall-base); color: var(--fg); font-family: var(--f-body); font-size: 14px; }
+body { height: 100%; margin: 0; background: var(--wall-base); color: var(--fg); font-family: var(--f-body); font-size: 14px; }
 button, select, input { font: inherit; color: inherit; }
 svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
@@ -372,6 +372,196 @@ kbd {
 .mini-app .app-icon svg { width: 12px; height: 12px; }
 .mini-app.sounding .app-icon { opacity: 1; filter: none; }
 
+/* ---------- always at a screen edge ---------- */
+/* The mixer lives at the top, left or right edge, at a spot you choose along it (--dock-x / --dock-y,
+   set in code). Tucked: it slides past the edge and the pill takes over.
+   At the top it goes wide and short: apps spread into 2–3 columns, so it covers only a band of the
+   screen. On a side it goes narrow. !important: these win over the resize grip's size. */
+.panel.dock-top, .panel.dock-left, .panel.dock-right {
+  left: var(--dock-x, 16px); top: var(--dock-y, 12px); right: auto; bottom: auto; translate: 0 0;
+  transition: left .32s cubic-bezier(.2, .9, .25, 1), top .32s cubic-bezier(.2, .9, .25, 1),
+              translate .36s cubic-bezier(.2, .9, .25, 1), opacity .28s ease, box-shadow .2s;
+}
+.panel.dock-top {
+  width: min(860px, calc(100% - 32px)); max-height: min(520px, calc(100% - 76px));
+}
+.panel.dock-left, .panel.dock-right {
+  width: min(330px, calc(100% - 32px)); max-height: calc(100% - 92px);
+}
+.panel.dock-top.tucked { translate: 0 calc(-100% - 40px); }
+.panel.dock-left.tucked { translate: calc(-100% - 40px) 0; }
+.panel.dock-right.tucked { translate: calc(100% + 40px) 0; }
+.panel.tucked { opacity: 0; pointer-events: none; }
+/* While you drag it, it follows the pointer freely. */
+.panel.moving {
+  transition: box-shadow .2s; translate: 0 0 !important;
+  left: var(--drag-x) !important; top: var(--drag-y) !important; right: auto !important; bottom: auto !important;
+}
+
+/* While dragging: a glowing line shows where the mixer will land (placed in code). */
+.dock-hint {
+  position: absolute; z-index: 7; pointer-events: none; border-radius: 99px;
+  background: var(--accent); box-shadow: 0 0 18px 4px rgb(from var(--accent) r g b / .55);
+  animation: hint-pulse 1.1s ease-in-out infinite alternate;
+}
+.dock-hint::after {
+  content: "Release to place it here"; position: absolute; white-space: nowrap;
+  padding: 5px 10px; border-radius: 99px; font: 600 12px var(--f-body); color: var(--accent-fg); background: var(--accent);
+}
+.dock-hint[data-edge="top"]::after { top: 12px; left: 50%; translate: -50% 0; }
+.dock-hint[data-edge="left"]::after { left: 14px; top: 50%; translate: 0 -50%; }
+.dock-hint[data-edge="right"]::after { right: 14px; top: 50%; translate: 0 -50%; }
+@keyframes hint-pulse { from { opacity: .55; } }
+
+/* The edge strip: moving the mouse to the edge brings the mixer back, like the real screen edge would. */
+.edge-hot { position: absolute; z-index: 6; }
+.edge-hot[data-edge="top"] { top: 0; left: var(--hot-x, 0); width: var(--hot-w, 100%); height: 6px; }
+.edge-hot[data-edge="left"] { left: 0; top: var(--hot-y, 0); height: var(--hot-h, 100%); width: 6px; }
+.edge-hot[data-edge="right"] { right: 0; top: var(--hot-y, 0); height: var(--hot-h, 100%); width: 6px; }
+
+/* The pill. Compact: live sound bars and the volume. Live: grows for a moment to show what changed. */
+.island {
+  position: absolute; z-index: 8; display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 0 12px; border: 1px solid var(--edge); border-radius: 99px; cursor: pointer; overflow: hidden;
+  color: var(--fg); font: inherit;
+  background: rgb(var(--glass-rgb) / max(var(--glass-a), .55));
+  backdrop-filter: blur(18px) saturate(170%); -webkit-backdrop-filter: blur(18px) saturate(170%);
+  box-shadow: 0 10px 30px -10px var(--shadow), inset 0 1px 0 var(--edge);
+  transition: width .38s cubic-bezier(.2, 1.1, .3, 1), height .38s cubic-bezier(.2, 1.1, .3, 1),
+              border-radius .38s ease, opacity .22s ease, scale .22s ease;
+}
+.island:hover { box-shadow: 0 12px 34px -8px var(--shadow), inset 0 1px 0 var(--edge), 0 0 0 2px rgb(from var(--accent) r g b / .45); }
+.island.away { opacity: 0; scale: .85; pointer-events: none; }
+/* The pill sits at the middle of where the mixer is docked (--isl-x / --isl-y, set in code). */
+.island[data-edge="top"] { top: 6px; left: var(--isl-x, 50%); translate: -50% 0; width: 124px; height: 32px; }
+.island[data-edge="left"] { left: 6px; top: var(--isl-y, 50%); translate: 0 -50%; width: 32px; height: 124px; flex-direction: column; padding: 12px 0; }
+.island[data-edge="right"] { right: 6px; top: var(--isl-y, 50%); translate: 0 -50%; width: 32px; height: 124px; flex-direction: column; padding: 12px 0; }
+.island.has-art:not(.live)[data-edge="top"] { width: 152px; }
+.island.has-art:not(.live)[data-edge="left"], .island.has-art:not(.live)[data-edge="right"] { height: 152px; }
+.island.live { width: min(318px, calc(100% - 24px)); height: 58px; border-radius: 22px; flex-direction: row; padding: 0 14px; }
+
+.isl-compact { display: flex; align-items: center; gap: 8px; }
+.island[data-edge="left"] .isl-compact, .island[data-edge="right"] .isl-compact { flex-direction: column; }
+.island.live .isl-compact { display: none; }
+.isl-bars { display: flex; align-items: center; gap: 3px; height: 16px; }
+.island[data-edge="left"] .isl-bars, .island[data-edge="right"] .isl-bars { flex-direction: column; width: 16px; height: auto; }
+.isl-bars i { display: block; width: 3px; height: 16px; border-radius: 2px; background: var(--accent); transform-origin: center; transform: scaleY(.15); }
+.island[data-edge="left"] .isl-bars i, .island[data-edge="right"] .isl-bars i { width: 16px; height: 3px; transform: scaleX(.15); }
+.isl-val { font: 500 12px var(--f-mono); font-variant-numeric: tabular-nums; }
+.island[data-edge="left"] .isl-val, .island[data-edge="right"] .isl-val { font-size: 10.5px; }
+.island.muted .isl-bars i { background: var(--fg-3); }
+.island.muted .isl-val { color: var(--hot); }
+
+.isl-live { display: none; align-items: center; gap: 12px; width: 100%; min-width: 0; animation: isl-in .3s ease both .08s; }
+.island.live .isl-live { display: flex; }
+@keyframes isl-in { from { opacity: 0; translate: 0 4px; } }
+.isl-icon { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 10px; background: var(--hover); color: var(--accent); }
+.isl-icon.muted { color: var(--hot); }
+.isl-icon .app-icon { width: 34px; height: 34px; }
+.isl-text { display: grid; min-width: 0; flex: 1; text-align: left; line-height: 1.25; }
+.isl-text b { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.isl-text small { font-size: 11.5px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.isl-bar { width: 72px; height: 6px; flex: none; border-radius: 99px; background: var(--track); overflow: hidden; }
+.isl-bar i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .2s ease; }
+.isl-num { width: 26px; flex: none; text-align: right; font: 500 12.5px var(--f-mono); font-variant-numeric: tabular-nums; }
+.isl-eq { display: flex; align-items: flex-end; gap: 3px; height: 18px; flex: none; }
+.isl-eq i { width: 3px; height: 18px; border-radius: 2px; background: var(--accent); transform-origin: bottom; transform: scaleY(.3); }
+
+/* Extra pill details: album art for what's playing, and the macOS-style orange dot while a mic is in use. */
+:root { --mic: #ff9f0a; }
+.isl-art { width: 20px; height: 20px; flex: none; border-radius: 6px; background: linear-gradient(135deg, var(--a1), var(--a2)); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .2); }
+.isl-mic {
+  position: absolute; top: 7px; right: 9px; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--mic); box-shadow: 0 0 0 2px rgb(var(--glass-rgb) / .8), 0 0 8px var(--mic);
+}
+.island[data-edge="left"] .isl-mic, .island[data-edge="right"] .isl-mic { top: 9px; right: auto; left: 50%; translate: -50% 0; }
+.island.live .isl-mic { top: 9px; right: 11px; left: auto; translate: none; }
+.isl-icon.art { background: linear-gradient(135deg, var(--a1), var(--a2)); color: #fff; }
+.isl-icon.mic { background: var(--mic); color: #241400; }
+.isl-dot { width: 9px; height: 9px; flex: none; border-radius: 50%; background: var(--mic); box-shadow: 0 0 10px var(--mic); animation: mic-pulse 1.2s ease-in-out infinite alternate; }
+@keyframes mic-pulse { from { opacity: .45; } }
+
+/* Now Playing: the song or video playing, with controls (like macOS Control Center). */
+.np {
+  display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  padding: 10px 12px 10px 10px; border-radius: 14px; background: rgb(var(--glass-rgb) / .35); border: 1px solid var(--edge);
+}
+.np-art {
+  width: 58px; height: 58px; border-radius: 12px; display: grid; place-items: center; color: rgb(255 255 255 / .85);
+  background: linear-gradient(135deg, var(--a1), var(--a2)); box-shadow: 0 6px 16px -8px var(--shadow), inset 0 0 0 1px rgb(255 255 255 / .18);
+  transition: background .4s ease;
+}
+.np-art svg { width: 24px; height: 24px; }
+.np-info { min-width: 0; display: grid; gap: 1px; }
+.np-src {
+  display: inline-flex; align-items: center; gap: 6px; justify-self: start; border: 0; background: none; padding: 0; cursor: pointer;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--fg-3);
+}
+.np-src .app-icon { width: 16px; height: 16px; border-radius: 4px; }
+.np-src .app-icon svg { width: 10px; height: 10px; }
+.np-src:hover { color: var(--fg-2); }
+.np-title { font-weight: 700; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-artist { font-size: 12px; color: var(--fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-progress { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; margin-top: 4px; font: 500 10.5px var(--f-mono); color: var(--fg-3); font-variant-numeric: tabular-nums; }
+.np-bar { height: 4px; border-radius: 99px; background: var(--track); overflow: hidden; }
+.np-bar i { display: block; height: 100%; background: var(--fg-2); border-radius: inherit; }
+.np-ctrl { display: flex; align-items: center; gap: 2px; }
+.np-ctrl .np-play { width: 38px; height: 38px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); }
+.np-ctrl .np-play:hover { background: var(--accent); filter: brightness(1.08); color: var(--accent-fg); }
+.np-ctrl svg { width: 17px; height: 17px; }
+.np-ctrl .icon-btn:disabled { opacity: .35; cursor: default; background: none; }
+.np-src:disabled { cursor: default; color: var(--fg-3); }
+.np-ctrl .np-play svg { fill: currentColor; }
+
+/* Microphone: level, mute, and which app is using it (the orange dot, as on macOS). */
+.mic {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px;
+  padding: 8px 12px 8px 8px; border-radius: 14px; background: rgb(var(--glass-rgb) / .22); border: 1px solid var(--edge-2);
+}
+.mic-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.mic-name { font-weight: 700; font-size: 12.5px; }
+.mic-use { font-size: 11.5px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mic.in-use .mic-use { color: var(--fg-2); }
+.mic.in-use .mic-use::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--mic); vertical-align: 1px; box-shadow: 0 0 6px var(--mic); }
+.mic .meter { margin: 5px 0 0; }
+.mic .meter i { background: linear-gradient(90deg, var(--ok) 0 70%, var(--warn) 85%, var(--hot)); }
+.mic.muted .mic-mute { color: var(--hot); }
+.mic.muted .mic-name::after { content: " · muted"; font-weight: 600; color: var(--hot); }
+
+/* Automatic profiles: the chip a rule switched on says so. */
+.chip[data-auto="true"]::after { content: "auto"; margin-left: 6px; padding: 1px 5px; border-radius: 99px; font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; background: rgb(0 0 0 / .18); }
+.look-sub { margin-top: 2px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--fg-3); }
+
+/* Now Playing and the mic sit side by side when the mixer is wide (docked at the top). */
+.media { display: grid; gap: 8px; }
+@container mixer (min-width: 560px) {
+  .media { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); align-items: stretch; }
+  .media .mic { align-content: center; }
+}
+@container mixer (max-width: 360px) {
+  .np { grid-template-columns: 48px minmax(0, 1fr); }
+  .np-art { width: 48px; height: 48px; }
+  .np-ctrl { grid-column: 1 / -1; justify-content: center; }
+}
+
+/* Demo controls: on a real PC these events come from Windows; here, buttons stand in for them. */
+.try {
+  position: absolute; z-index: 4; bottom: 66px; left: max(16px, env(safe-area-inset-left, 0px));
+  max-width: min(330px, calc(100% - 32px)); display: grid; gap: 8px; padding: 12px 14px; border-radius: 14px;
+  background: rgb(var(--glass-rgb) / .62); border: 1px solid var(--edge);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 14px 34px -18px var(--shadow);
+}
+.try b { font: 600 13px var(--f-display); }
+.try p { margin: 0; font-size: 11.5px; color: var(--fg-2); line-height: 1.45; }
+.try-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.try-btns button {
+  border: 1px solid var(--edge); background: rgb(var(--glass-rgb) / .6); border-radius: 99px;
+  padding: 4px 10px; font-size: 12px; font-weight: 600; color: var(--fg-2); cursor: pointer;
+}
+.try-btns button:hover { color: var(--fg); background: var(--hover); }
+.try-btns button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+
 /* ---------- the panel adapts to its own width ---------- */
 @container mixer (min-width: 560px) {
   .list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; align-items: start; }
@@ -381,8 +571,15 @@ kbd {
 @container mixer (min-width: 840px) {
   .list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+/* Hide hints before they get cut off or run into the header buttons. */
+@container mixer (max-width: 430px) {
+  .p-title span { display: none; }
+}
+@container mixer (max-width: 385px) {
+  .foot-keys { display: none; }
+}
 @container mixer (max-width: 340px) {
-  .p-title span, .foot-keys, .app-sub { display: none; }
+  .app-sub { display: none; }
   .app-main { gap: 8px; }
   .chip { padding: 3px 8px; }
   .look-row { grid-template-columns: 78px 1fr 40px; }
@@ -407,14 +604,37 @@ kbd {
   .mini-apps { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .wall, .panel.pop, .app.flash { animation: none; }
+  .wall, .panel.pop, .app.flash, .dock-hint, .isl-live { animation: none; }
   * { transition: none !important; }
 }
 </style>
 
 <div class="desk" id="desk">
   <div class="wall" aria-hidden="true"></div>
-  <p class="desk-note" id="desk-note">Desktop app mockup. Drag the header to move, the top-left corner to resize, and use the minus button to minimize.</p>
+  <p class="desk-note" id="desk-note">Desktop app mockup. The mixer lives at a screen edge: drag its header to move it along the top, or to the left or right side.</p>
+
+  <aside class="try" id="try" aria-label="Try the pill">
+    <b>Try the pill</b>
+    <p>When your mouse leaves the mixer, it tucks away into a pill at its edge. Hover the pill to bring it back, or scroll over it to change the volume. These buttons stand in for things Windows would report:</p>
+    <div class="try-btns">
+      <button class="primary" data-try="up">Volume key ▲</button>
+      <button data-try="down">Volume key ▼</button>
+      <button data-try="mute">Mute key</button>
+      <button data-try="track">Next song</button>
+      <button data-try="call">Discord call starts</button>
+      <button data-try="game">A game opens</button>
+      <button data-try="play">VLC starts playing</button>
+      <button data-try="device">Switch output</button>
+    </div>
+  </aside>
+
+  <div class="dock-hint" id="dock-hint" hidden></div>
+  <div class="edge-hot" id="edge-hot" hidden></div>
+  <button class="island away" id="island" hidden aria-label="Show the volume mixer">
+    <span class="isl-compact"><span class="isl-art" id="isl-art" hidden></span><span class="isl-bars"><i></i><i></i><i></i><i></i><i></i></span><span class="isl-val" id="isl-val">0</span></span>
+    <span class="isl-live" id="isl-live"></span>
+    <span class="isl-mic" id="isl-mic" hidden></span>
+  </button>
 
   <div class="win win-ed" aria-hidden="true">
     <div class="win-bar"><span class="dots"><i></i><i></i><i></i></span>AudioSessionRouter.cs</div>
@@ -429,12 +649,10 @@ kbd {
     <div class="grip" id="grip" title="Drag to resize" aria-hidden="true"></div>
     <span class="size-badge" id="size-badge" hidden></span>
     <header class="p-head" id="p-head">
-      <div class="p-title"><h1>Volume</h1><span>Drag to move · double-click to dock</span></div>
+      <div class="p-title"><h1>Volume</h1></div>
       <div class="p-actions">
-        <button class="icon-btn" id="btn-pin" aria-pressed="true" title="Keep on top" aria-label="Keep on top"></button>
         <button class="icon-btn" id="btn-look" aria-expanded="false" aria-controls="look" title="Appearance" aria-label="Appearance"></button>
-        <button class="icon-btn" id="btn-min" title="Minimize (Ctrl+Alt+M)" aria-label="Minimize volume mixer"></button>
-        <button class="icon-btn" id="btn-close" title="Hide" aria-label="Hide volume mixer"></button>
+        <button class="icon-btn" id="btn-tuck" title="Tuck away (Ctrl+Alt+V)" aria-label="Tuck away"></button>
       </div>
     </header>
 
@@ -463,17 +681,40 @@ kbd {
         </div>
       </section>
 
+      <div class="media">
+      <section class="np" id="np" aria-label="Now playing">
+        <div class="np-art" id="np-art"></div>
+        <div class="np-info">
+          <button class="np-src" id="np-src" title="Switch to another app that's playing"></button>
+          <span class="np-title" id="np-title"></span>
+          <span class="np-artist" id="np-artist"></span>
+          <div class="np-progress"><span id="np-time">0:00</span><div class="np-bar"><i id="np-fill"></i></div><span id="np-len">0:00</span></div>
+        </div>
+        <div class="np-ctrl">
+          <button class="icon-btn" id="np-prev" aria-label="Previous"></button>
+          <button class="icon-btn np-play" id="np-play" aria-label="Pause"></button>
+          <button class="icon-btn" id="np-next" aria-label="Next"></button>
+        </div>
+      </section>
+
+      <section class="mic" id="mic" aria-label="Microphone">
+        <button class="icon-btn mic-mute" id="mic-mute" aria-pressed="false" aria-label="Mute microphone"></button>
+        <div>
+          <div class="mic-top"><span class="mic-name">Microphone</span><span class="mic-use" id="mic-use">Not in use</span></div>
+          <div class="meter"><i id="mic-level"></i></div>
+        </div>
+      </section>
+      </div>
+
       <section class="look" id="look" hidden aria-label="Appearance">
         <label class="look-row" for="opt-clear">Transparency <input type="range" id="opt-clear" min="0" max="100"><span class="val" id="val-clear"></span></label>
         <label class="look-row" for="opt-blur">Background blur <input type="range" id="opt-blur" min="0" max="40"><span class="val" id="val-blur"></span></label>
-        <div class="look-row"><span>Panel size</span>
-          <div class="seg sizes" role="group" aria-label="Panel size">
-            <button data-size="compact" aria-pressed="false">Compact</button>
-            <button data-size="regular" aria-pressed="false">Regular</button>
-            <button data-size="wide" aria-pressed="false">Wide</button>
-          </div>
-        </div>
-        <label class="look-check" for="opt-meters"><input type="checkbox" id="opt-meters"> Show live level meters</label>
+        <label class="look-check" for="opt-tuck"><input type="checkbox" id="opt-tuck"> Tuck away when the mouse leaves</label>
+        <label class="look-check" for="opt-activity"><input type="checkbox" id="opt-activity"> Show activity on the pill</label>
+        <span class="look-sub">Automatic profiles</span>
+        <label class="look-check" for="auto-meeting"><input type="checkbox" id="auto-meeting"> Meeting while a call is on (Discord, Teams, Zoom)</label>
+        <label class="look-check" for="auto-gaming"><input type="checkbox" id="auto-gaming"> Gaming while a game is open</label>
+        <label class="look-check" for="auto-focus"><input type="checkbox" id="auto-focus"> Focus on weekdays, 9:00 to 17:00</label>
       </section>
 
       <div class="bar">
@@ -489,10 +730,6 @@ kbd {
       <div class="board" id="board" hidden></div>
     </div>
 
-    <footer class="p-foot">
-      <span class="live" id="foot-live">Listening</span>
-      <span class="foot-keys"><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>V</kbd> shows or hides</span>
-    </footer>
   </section>
 
   <nav class="taskbar" aria-label="Taskbar">
@@ -527,13 +764,24 @@ kbd {
   };
   const I = {
     chev: svg('<path d="M6 9l6 6 6-6"/>'),
-    pin: svg('<path d="M9 4h6l-1 6 3 3H7l3-3z"/><path d="M12 13v7"/>'),
     look: svg('<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>'),
-    close: svg('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'),
     start: svg('<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>'),
     speakers: svg('<rect x="6" y="3" width="12" height="18" rx="2.5"/><circle cx="12" cy="14.5" r="3"/><circle cx="12" cy="7.5" r="1"/>'),
     headphones: svg('<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/>'),
     monitor: svg('<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M9 20h6M12 16v4"/>'),
+    mic: svg('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/>'),
+    micOff: svg('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7M4 4l16 16"/>'),
+    prev: svg('<path d="M18 6.5v11L9.5 12z" fill="currentColor"/><path d="M6.5 6.5v11"/>'),
+    next: svg('<path d="M6 6.5v11l8.5-5.5z" fill="currentColor"/><path d="M17.5 6.5v11"/>'),
+    play: svg('<path d="M8.5 5.5v13l10-6.5z"/>'),
+    pause: svg('<rect x="7" y="5.5" width="3.5" height="13" rx="1"/><rect x="13.5" y="5.5" width="3.5" height="13" rx="1"/>'),
+    auto: svg('<path d="M12 3.5v2.5M12 18v2.5M3.5 12H6M18 12h2.5M6 6l1.8 1.8M16.2 16.2 18 18M6 18l1.8-1.8M16.2 7.8 18 6"/><circle cx="12" cy="12" r="3"/>'),
+  };
+  // The tuck button's arrow points at the edge the mixer is on.
+  const TUCK = {
+    top: svg('<path d="M5 4h14"/><path d="M12 20V9"/><path d="M7.5 13.5 12 9l4.5 4.5"/>'),
+    left: svg('<path d="M4 5v14"/><path d="M20 12H9"/><path d="M13.5 7.5 9 12l4.5 4.5"/>'),
+    right: svg('<path d="M20 5v14"/><path d="M4 12h11"/><path d="M10.5 7.5 15 12l-4.5 4.5"/>'),
   };
 
   const DEVICES = [
@@ -543,11 +791,11 @@ kbd {
   ];
 
   const apps = [
-    { id: 'spotify', name: 'Spotify', sub: 'Now playing · Kundiman Sessions', glyph: 'music', c: '--app-music', vol: 72, f: 1.7 },
-    { id: 'chrome', name: 'Google Chrome', sub: 'YouTube · lo-fi study stream', glyph: 'globe', c: '--app-web', vol: 55, f: 1.1 },
+    { id: 'spotify', name: 'Spotify', sub: '', glyph: 'music', c: '--app-music', vol: 72, f: 1.7 },
+    { id: 'chrome', name: 'Google Chrome', sub: '', glyph: 'globe', c: '--app-web', vol: 55, f: 1.1 },
     { id: 'discord', name: 'Discord', sub: 'Voice · #capstone-team, 3 talking', glyph: 'voice', c: '--app-voice', vol: 85, f: 2.6 },
     { id: 'unity', name: 'Unity Editor', sub: 'Play mode · AR scene audio', glyph: 'cube', c: '--app-engine', vol: 40, f: .9 },
-    { id: 'vlc', name: 'VLC media player', sub: 'Paused · lecture-week7.mp4', glyph: 'play', c: '--app-media', vol: 64, f: 1.3 },
+    { id: 'vlc', name: 'VLC media player', sub: '', glyph: 'play', c: '--app-media', vol: 64, f: 1.3 },
     { id: 'system', name: 'System sounds', sub: 'Notifications and alerts', glyph: 'bell', c: '--app-sys', vol: 30, f: 3 },
   ].map((a, i) => ({ ...a, muted: false, out: 'default', bal: 0, level: 0, peak: 0, peakT: 0, ph: i * 1.9 }));
   const byId = Object.fromEntries(apps.map(a => [a.id, a]));
@@ -559,13 +807,24 @@ kbd {
     meeting: { label: 'Meeting', vols: { spotify: 12, chrome: 18, discord: 100, unity: 20, vlc: 30, system: 45 }, muted: ['spotify', 'unity'] },
   };
 
-  const SIZES = { compact: { w: 300, h: null }, regular: { w: null, h: null }, wide: { w: 780, h: 560 } };
-  const PREF_KEYS = ['mode', 'clear', 'blur', 'meters', 'w', 'h', 'sizePreset', 'min'];
-  const state = { min: false, master: 78, masterMuted: false, device: 'speakers', mode: 'list', clear: 70, blur: 20, meters: true, profile: 'default', w: null, h: null, sizePreset: 'regular' };
+  // Made-up songs for the demo.
+  const TRACKS = [
+    { title: 'Liwanag sa Dilim', artist: 'Kundiman Sessions', len: 214, a1: '#ff7a59', a2: '#7b3fe4' },
+    { title: 'Sarangani Blue', artist: 'Kundiman Sessions', len: 187, a1: '#2bb7da', a2: '#1d3f8f' },
+    { title: 'Hatinggabi', artist: 'Kundiman Sessions', len: 243, a1: '#f2b84b', a2: '#b33a3a' },
+  ];
+
+  const PREF_KEYS = ['mode', 'clear', 'blur', 'tuck', 'activity', 'dockEdge', 'dockAlong', 'auto'];
+  const state = { master: 78, masterMuted: false, device: 'speakers', mode: 'list', clear: 70, blur: 20, profile: 'default', tuck: true, activity: true,
+    dockEdge: 'top', dockAlong: .5, auto: { meeting: true, gaming: true, focus: false } };
   try {
     const saved = JSON.parse(localStorage.getItem('glass-mixer-prefs') || '{}');
     for (const k of PREF_KEYS) if (k in saved) state[k] = saved[k];
   } catch (e) { /* storage unavailable */ }
+  if (!['top', 'left', 'right'].includes(state.dockEdge)) state.dockEdge = 'top';
+  state.dockAlong = clampNum(+state.dockAlong, 0, 1, .5);
+  state.auto = { meeting: true, gaming: true, focus: false, ...(typeof state.auto === 'object' ? state.auto : {}) };
+  function clampNum(v, lo, hi, fallback) { return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback; }
   const savePrefs = () => {
     try { localStorage.setItem('glass-mixer-prefs', JSON.stringify(Object.fromEntries(PREF_KEYS.map(k => [k, state[k]])))); } catch (e) {}
   };
@@ -576,18 +835,18 @@ kbd {
   const pos = (v) => `calc(8px + (100% - 16px) * ${v / 100})`;
   const icon = (a) => `<span class="app-icon" style="--c: var(${a.c})">${svg(GLYPH[a.glyph])}</span>`;
   const deviceName = () => DEVICES.find(d => d.id === state.device).name;
+  const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
   /* ---------- static chrome ---------- */
-  $('#btn-pin').innerHTML = I.pin;
   $('#btn-look').innerHTML = I.look;
-  $('#btn-close').innerHTML = I.close;
-  $('#grip').innerHTML = svg('<path d="M4 14L14 4M4 9l5-5"/>');
-  $('#btn-min').innerHTML = svg('<path d="M6 12.5h12"/>');
-  $('#btn-restore').innerHTML = svg('<path d="M14 4h6v6M10 20H4v-6M20 4l-6.5 6.5M4 20l6.5-6.5"/>');
-  $('#mini-drag').innerHTML = svg('<path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01"/>');
   $('#tb-start').innerHTML = I.start;
   $('#dev-chev').outerHTML = I.chev.replace('<svg', '<svg class="chev"');
   $('#dev').innerHTML = DEVICES.map(d => `<option value="${d.id}">${d.name} (${d.detail})</option>`).join('');
+  $('#np-prev').innerHTML = I.prev;
+  $('#np-next').innerHTML = I.next;
+  // The mixer's size now comes from the edge it's on, so the resize corner and the old bar go.
+  $('#grip').hidden = true;
+  $('#mini').hidden = true;
 
   const ed = $('#ed-body');
   const LINES = [[0, 34], [2, 10, 20], [2, 44], [4, 16, 12, 9], [4, 28], [2, 6], [0], [2, 14, 30], [4, 36], [4, 20, 14], [6, 24], [4, 8], [2, 6], [0], [2, 26, 10], [4, 18, 22]];
@@ -602,7 +861,7 @@ kbd {
         ${icon(a)}
         <div class="app-body">
           <div class="app-top"><span class="app-name">${a.name}</span><span class="val" id="val-${a.id}"></span></div>
-          <div class="app-sub">${a.sub}</div>
+          <div class="app-sub" id="sub-${a.id}">${a.sub}</div>
           <input type="range" id="vol-${a.id}" min="0" max="100" aria-label="${a.name} volume">
           <div class="meter"><i></i><b></b></div>
         </div>
@@ -640,7 +899,6 @@ kbd {
     stripHTML('master', 'Master', `<span class="app-icon" style="--c: var(--accent)" id="master-chip"></span>`, 'master-strip') +
     apps.map(a => stripHTML(a.id, a.name.replace(' media player', '').replace('Google ', ''), icon(a))).join('');
 
-  $('#mini-apps').innerHTML = apps.map(a => `<button class="mini-app" data-mini="${a.id}" aria-label="Open ${a.name}" title="${a.name}">${icon(a)}</button>`).join('');
   $('#tb-apps').innerHTML = apps.filter(a => a.id !== 'system').map(a => `<button class="tb-app" data-tb="${a.id}" aria-label="${a.name}">${icon(a)}</button>`).join('');
 
   /* ---------- rendering ---------- */
@@ -666,10 +924,6 @@ kbd {
     });
     document.querySelectorAll(`[data-id="${id}"]`).forEach(el => el.classList.toggle('is-muted', m));
     if (id === 'master') {
-      const mr = $('#vol-mini');
-      if (+mr.value !== v) mr.value = v;
-      mr.style.setProperty('--p', pos(v));
-      $('#val-mini').textContent = v;
       $('#master-chip').innerHTML = speaker(v, m);
       $('#tray-vol').innerHTML = speaker(v, m) + `<span>${m ? 'Muted' : v + '%'}</span>`;
       $('#tray-vol').title = `${deviceName()}: ${m ? 'muted' : v + '%'}`;
@@ -679,7 +933,11 @@ kbd {
   const renderAll = () => { render('master'); apps.forEach(a => render(a.id)); };
 
   function renderProfile() {
-    document.querySelectorAll('[data-profile]').forEach(b => b.setAttribute('aria-pressed', b.dataset.profile === state.profile));
+    document.querySelectorAll('[data-profile]').forEach(b => {
+      const on = b.dataset.profile === state.profile;
+      b.setAttribute('aria-pressed', on);
+      b.dataset.auto = on && b.dataset.profile === auto.active; // "auto" badge: a rule switched it on
+    });
   }
 
   function setVol(id, v, opts = {}) {
@@ -695,36 +953,153 @@ kbd {
     }
     if (!opts.fromProfile && id !== 'master' && state.profile) { state.profile = null; renderProfile(); }
     render(id);
+    if (id === 'master') notifyIsland('volume');
   }
   function toggleMute(id) {
     if (id === 'master') state.masterMuted = !state.masterMuted;
     else { byId[id].muted = !byId[id].muted; if (state.profile) { state.profile = null; renderProfile(); } }
     render(id);
+    if (id === 'master') notifyIsland('mute');
   }
 
-  function applyProfile(key) {
-    const p = PROFILES[key];
+  // A mix is a volume per app plus the apps that are muted. Profiles are saved mixes.
+  function applyMix(vols, mutedList, key) {
     state.profile = key; renderProfile();
-    apps.forEach(a => { a.muted = p.muted.includes(a.id); });
+    apps.forEach(a => { a.muted = mutedList.includes(a.id); });
     const from = Object.fromEntries(apps.map(a => [a.id, a.vol]));
-    if (reduce) { apps.forEach(a => setVol(a.id, p.vols[a.id], { fromProfile: true, keepMute: true })); return; }
+    if (reduce) { apps.forEach(a => setVol(a.id, vols[a.id], { fromProfile: true, keepMute: true })); return; }
     const t0 = performance.now(), dur = 280;
     const step = (now) => {
       const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
-      apps.forEach(a => setVol(a.id, from[a.id] + (p.vols[a.id] - from[a.id]) * e, { fromProfile: true, keepMute: true }));
+      apps.forEach(a => setVol(a.id, from[a.id] + (vols[a.id] - from[a.id]) * e, { fromProfile: true, keepMute: true }));
       if (k < 1) requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
   }
+  const applyProfile = (key) => applyMix(PROFILES[key].vols, PROFILES[key].muted, key);
+
+  /* ---------- Now Playing ----------
+     On Windows this comes from the media controls apps share with the system
+     (the same ones the volume flyout shows): title, artist, artwork, play/pause, next. */
+  const np = { src: 'spotify', track: 0, time: { spotify: 48, chrome: 1260, vlc: 0 }, paused: { spotify: false, chrome: false, vlc: false } };
+  const MEDIA = {
+    spotify: () => TRACKS[np.track],
+    chrome: () => ({ title: 'lo-fi study stream', artist: 'YouTube · live', len: 0, a1: '#5b8def', a2: '#a35bd6' }),
+    vlc: () => ({ title: 'lecture-week7.mp4', artist: 'IT Capstone · Week 7', len: 3120, a1: '#ff9a3c', a2: '#c4421a' }),
+  };
+  const forcedPlay = {};
+  const sources = () => ['spotify', 'chrome', ...(forcedPlay.vlc ? ['vlc'] : [])];
+  const npEl = $('#np');
+  function renderNP() {
+    const m = MEDIA[np.src](), a = byId[np.src], paused = np.paused[np.src];
+    for (const el of [npEl, island]) { el.style.setProperty('--a1', m.a1); el.style.setProperty('--a2', m.a2); }
+    $('#np-art').innerHTML = svg(GLYPH[a.glyph]);
+    $('#np-src').innerHTML = `${icon(a)}<span>${a.name.replace(' media player', '')}</span>`;
+    $('#np-src').disabled = sources().length < 2;
+    $('#np-title').textContent = m.title;
+    $('#np-artist').textContent = m.artist;
+    $('#np-play').innerHTML = paused ? I.play : I.pause;
+    $('#np-play').setAttribute('aria-label', paused ? 'Play' : 'Pause');
+    $('#np-prev').disabled = $('#np-next').disabled = np.src !== 'spotify';
+    $('#np-len').textContent = m.len ? fmt(m.len) : 'LIVE';
+    renderNPTime();
+    const t = TRACKS[np.track];
+    $('#sub-spotify').textContent = `${np.paused.spotify ? 'Paused' : 'Now playing'} · ${t.title}`;
+    $('#sub-chrome').textContent = `${np.paused.chrome ? 'Paused' : 'YouTube'} · lo-fi study stream`;
+    $('#sub-vlc').textContent = `${forcedPlay.vlc && !np.paused.vlc ? 'Playing' : 'Paused'} · lecture-week7.mp4`;
+  }
+  function renderNPTime() {
+    const m = MEDIA[np.src](), t = np.time[np.src];
+    $('#np-time').textContent = fmt(t);
+    $('#np-fill').style.width = m.len ? `${(t / m.len) * 100}%` : '100%';
+  }
+  function togglePlay() {
+    np.paused[np.src] = !np.paused[np.src];
+    renderNP(); updateCounts();
+    notifyIsland('track');
+  }
+  function skip(dir) {
+    if (np.src !== 'spotify') return;
+    if (dir < 0 && np.time.spotify > 3) np.time.spotify = 0; // like every player: back once restarts the song
+    else { np.track = (np.track + dir + TRACKS.length) % TRACKS.length; np.time.spotify = 0; }
+    np.paused.spotify = false;
+    renderNP(); updateCounts();
+    notifyIsland('track');
+  }
+  setInterval(() => {
+    for (const id of ['spotify', 'chrome', 'vlc']) {
+      if (!playing(byId[id], 0)) continue;
+      np.time[id]++;
+      if (id === 'spotify' && np.time.spotify >= TRACKS[np.track].len) {
+        np.track = (np.track + 1) % TRACKS.length; np.time.spotify = 0;
+        if (np.src === 'spotify') { renderNP(); notifyIsland('track'); }
+      }
+    }
+    renderNPTime();
+  }, 1000);
+
+  /* ---------- microphone ----------
+     Windows knows which apps are recording (Settings > Privacy > Microphone shows them);
+     macOS shows an orange dot then. Here the "Discord call" demo button turns it on. */
+  const mic = { users: [], muted: false, level: 0 };
+  const micEl = $('#mic');
+  function renderMic() {
+    const inUse = mic.users.length > 0;
+    micEl.classList.toggle('in-use', inUse);
+    micEl.classList.toggle('muted', mic.muted);
+    $('#mic-use').textContent = inUse ? `In use by ${mic.users.join(', ')}` : 'Not in use';
+    const b = $('#mic-mute');
+    b.innerHTML = mic.muted ? I.micOff : I.mic;
+    b.setAttribute('aria-pressed', mic.muted);
+    b.setAttribute('aria-label', mic.muted ? 'Unmute microphone' : 'Mute microphone');
+    b.title = (mic.muted ? 'Unmute' : 'Mute') + ' microphone (Ctrl+Alt+K)';
+    $('#isl-mic').hidden = !inUse;
+  }
+  function toggleMic() { mic.muted = !mic.muted; renderMic(); notifyIsland('micmute'); }
+
+  /* ---------- automatic profiles ----------
+     Like macOS Focus modes: a rule switches a profile on while something is true (a call, a
+     game, work hours) and puts your own mix back when it stops. Picking a profile yourself wins. */
+  const cond = { call: false, game: false, work: false };
+  const RULES = [ // first match wins
+    { profile: 'meeting', when: 'call', on: 'A call started', off: 'The call ended' },
+    { profile: 'gaming', when: 'game', on: 'A game is open', off: 'The game closed' },
+    { profile: 'focus', when: 'work', on: 'Work hours', off: 'Work hours are over' },
+  ];
+  const auto = { active: null, snap: null, skip: null };
+  const ruleFor = (p) => RULES.find(r => r.profile === p);
+  function evaluateAuto() {
+    const want = RULES.find(r => state.auto[r.profile] && cond[r.when])?.profile ?? null;
+    if (auto.skip !== null) { if (want === auto.skip) return; auto.skip = null; }
+    if (want === auto.active) return;
+    const old = auto.active;
+    if (!want) {
+      const s = auto.snap;
+      auto.active = null; auto.snap = null;
+      applyMix(s.vols, s.muted, s.profile);
+      notifyIsland('profile-off', { from: old, to: s.profile });
+      return;
+    }
+    if (!old) auto.snap = { profile: state.profile, vols: Object.fromEntries(apps.map(a => [a.id, a.vol])), muted: apps.filter(a => a.muted).map(a => a.id) };
+    auto.active = want;
+    applyProfile(want);
+    notifyIsland('profile', want);
+  }
+  function pickProfile(key) { // a profile you choose yourself
+    if (auto.active) { auto.skip = auto.active; auto.active = null; auto.snap = null; }
+    applyProfile(key);
+  }
+  const isWorkHours = (d = new Date()) => d.getDay() >= 1 && d.getDay() <= 5 && d.getHours() >= 9 && d.getHours() < 17;
 
   /* ---------- level meters ---------- */
   const playing = (a, t) => {
     switch (a.id) {
-      case 'spotify': case 'chrome': return true;
+      case 'spotify': return !np.paused.spotify;
+      case 'chrome': return !np.paused.chrome;
       case 'discord': return Math.sin(t * .9 + 1) + Math.sin(t * 2.3) > .2;
       case 'unity': return Math.sin(t * .45) > -.3;
       case 'system': return (t % 7) < .4;
-      default: return false;
+      default: return !!forcedPlay[a.id] && !np.paused[a.id]; // VLC, when the demo makes it start playing
     }
   };
   const meterEls = {};
@@ -732,30 +1107,25 @@ kbd {
     const row = id === 'master' ? $('.master') : list.querySelector(`[data-id="${id}"]`);
     meterEls[id] = { bar: row.querySelector('.meter i'), peak: row.querySelector('.meter b'), v: board.querySelector(`[data-id="${id}"] .vmeter i`) };
   });
-  meterEls.master.mini = $('#mini .meter i');
-  meterEls.master.miniPeak = $('#mini .meter b');
+  const micBar = $('#mic-level');
   const master = { level: 0, peak: 0, peakT: 0 };
   function paint(id, o) {
     const el = meterEls[id];
-    for (const [bar, peak] of [[el.bar, el.peak], [el.mini, el.miniPeak]]) {
-      if (!bar) continue;
-      bar.style.clipPath = `inset(0 ${(1 - o.level) * 100}% 0 0)`;
-      peak.style.left = `calc(${o.peak * 100}% - 2px)`;
-      peak.style.opacity = o.peak > .02 ? .55 : 0;
-    }
+    el.bar.style.clipPath = `inset(0 ${(1 - o.level) * 100}% 0 0)`;
+    el.peak.style.left = `calc(${o.peak * 100}% - 2px)`;
+    el.peak.style.opacity = o.peak > .02 ? .55 : 0;
     el.v.style.clipPath = `inset(${(1 - o.level) * 100}% 0 0 0)`;
   }
   function updateCounts(t) {
     const live = apps.filter(a => playing(a, t ?? 1) && effective(a) > 0);
     $('#app-count').textContent = `${live.length} of ${apps.length} making sound`;
-    $('#foot-live').textContent = `Output: ${deviceName()}`;
     document.querySelectorAll('[data-tb]').forEach(b => b.classList.toggle('sounding', live.includes(byId[b.dataset.tb])));
-    document.querySelectorAll('[data-mini]').forEach(b => b.classList.toggle('sounding', live.includes(byId[b.dataset.mini])));
   }
   function drawStatic() {
     let sum = 0;
     apps.forEach(a => { a.level = a.peak = playing(a, 1) ? Math.sqrt(effective(a)) * .6 : 0; sum += a.level * a.level; paint(a.id, a); });
     master.level = master.peak = state.masterMuted ? 0 : Math.min(1, Math.sqrt(sum)); paint('master', master);
+    micBar.style.clipPath = `inset(0 ${mic.users.length && !mic.muted ? 60 : 100}% 0 0)`;
     updateCounts(1);
   }
   let lastCount = 0;
@@ -778,6 +1148,10 @@ kbd {
     master.level += (mt - master.level) * .5;
     if (master.level >= master.peak) { master.peak = master.level; master.peakT = t; } else if (t - master.peakT > .9) master.peak = Math.max(master.level, master.peak - .012);
     paint('master', master);
+    // Your own voice: bursts while you talk, nothing while muted.
+    const talk = mic.users.length && !mic.muted ? Math.max(0, Math.sin(t * 1.7) + Math.sin(t * 4.1 + 1)) * .38 * (.7 + Math.random() * .5) : 0;
+    mic.level += (talk - mic.level) * (talk > mic.level ? .5 : .18);
+    micBar.style.clipPath = `inset(0 ${(1 - clamp(mic.level, 0, 1)) * 100}% 0 0)`;
     if (now - lastCount > 400) { updateCounts(t); lastCount = now; }
     requestAnimationFrame(frame);
   }
@@ -787,35 +1161,13 @@ kbd {
     const root = document.documentElement.style;
     root.setProperty('--glass-a', (0.92 - state.clear / 100 * 0.88).toFixed(3));
     root.setProperty('--blur', state.blur + 'px');
-    panel.classList.toggle('no-meters', !state.meters);
     $('#opt-clear').value = state.clear; $('#opt-clear').style.setProperty('--p', pos(state.clear));
     $('#opt-blur').value = state.blur; $('#opt-blur').style.setProperty('--p', pos(state.blur / 40 * 100));
     $('#val-clear').textContent = state.clear + '%';
     $('#val-blur').textContent = state.blur + 'px';
-    $('#opt-meters').checked = state.meters;
-  }
-  /* ---------- size ---------- */
-  // Width and height stay capped by the desk, so a saved size still fits a smaller screen.
-  function applySize() {
-    panel.style.width = state.w ? `min(${state.w}px, calc(100% - 32px))` : '';
-    panel.style.height = state.h ? `min(${state.h}px, calc(100% - 122px))` : '';
-    document.querySelectorAll('[data-size]').forEach(b => b.setAttribute('aria-pressed', b.dataset.size === state.sizePreset));
-  }
-  function setSizePreset(key) {
-    state.sizePreset = key;
-    state.w = SIZES[key].w; state.h = SIZES[key].h;
-    applySize(); savePrefs(); flashBadge();
-  }
-  const badge = $('#size-badge');
-  const tier = (w) => w <= 290 ? 'Mini' : w <= 340 ? 'Compact' : w < 560 ? 'Regular' : 'Wide';
-  new ResizeObserver(() => {
-    const r = panel.getBoundingClientRect();
-    badge.textContent = `${tier(r.width)} · ${Math.round(r.width)} × ${Math.round(r.height)}`;
-  }).observe(panel);
-  let badgeTimer;
-  function flashBadge() {
-    badge.hidden = false; clearTimeout(badgeTimer);
-    badgeTimer = setTimeout(() => { if (!panel.classList.contains('resizing')) badge.hidden = true; }, 1200);
+    $('#opt-tuck').checked = state.tuck;
+    $('#opt-activity').checked = state.activity;
+    for (const k of Object.keys(state.auto)) $('#auto-' + k).checked = state.auto[k];
   }
 
   function setMode(mode) {
@@ -829,8 +1181,7 @@ kbd {
   /* ---------- events ---------- */
   panel.addEventListener('input', (e) => {
     const t = e.target;
-    if (t.id === 'vol-mini') setVol('master', +t.value);
-    else if (t.id.startsWith('vol-')) setVol(t.id.slice(4), +t.value);
+    if (t.id.startsWith('vol-')) setVol(t.id.slice(4), +t.value);
     else if (t.dataset.bal) {
       const a = byId[t.dataset.bal], v = +t.value;
       a.bal = v;
@@ -843,12 +1194,15 @@ kbd {
   });
   panel.addEventListener('change', (e) => {
     const t = e.target;
-    if (t.id === 'opt-meters') { state.meters = t.checked; applyLook(); savePrefs(); }
+    if (t.id === 'opt-tuck') { state.tuck = t.checked; savePrefs(); }
+    else if (t.id === 'opt-activity') { state.activity = t.checked; savePrefs(); }
+    else if (t.id.startsWith('auto-')) { state.auto[t.id.slice(5)] = t.checked; savePrefs(); evaluateAuto(); }
     else if (t.id === 'dev') {
       state.device = t.value;
       $('#dev-icon').innerHTML = I[state.device];
       document.querySelectorAll('[data-out] option[value="default"]').forEach(o => o.textContent = `Default (${deviceName()})`);
       render('master'); updateCounts();
+      notifyIsland('device');
     }
     else if (t.dataset.out) byId[t.dataset.out].out = t.value;
   });
@@ -861,19 +1215,19 @@ kbd {
       b.setAttribute('aria-expanded', open);
       $('#extra-' + b.dataset.more).hidden = !open;
     }
-    else if (b.dataset.profile) applyProfile(b.dataset.profile);
-    else if (b.dataset.size) setSizePreset(b.dataset.size);
-    else if (b.dataset.mini) showPanel(true, b.dataset.mini);
-    else if (b.id === 'btn-min') setMin(true);
-    else if (b.id === 'btn-restore') setMin(false);
+    else if (b.dataset.profile) pickProfile(b.dataset.profile);
+    else if (b.id === 'btn-tuck') tuckNow();
     else if (b.id === 'mode-list') { setMode('list'); savePrefs(); }
     else if (b.id === 'mode-board') { setMode('board'); savePrefs(); }
-    else if (b.id === 'btn-pin') b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true');
     else if (b.id === 'btn-look') {
       const open = b.getAttribute('aria-expanded') !== 'true';
       b.setAttribute('aria-expanded', open); $('#look').hidden = !open;
     }
-    else if (b.id === 'btn-close') showPanel(false);
+    else if (b.id === 'np-play') togglePlay();
+    else if (b.id === 'np-prev') skip(-1);
+    else if (b.id === 'np-next') skip(1);
+    else if (b.id === 'np-src') { const s = sources(); np.src = s[(s.indexOf(np.src) + 1) % s.length]; renderNP(); }
+    else if (b.id === 'mic-mute') toggleMic();
   });
 
   // Scroll the wheel over any app (row or strip) to nudge its volume.
@@ -898,124 +1252,338 @@ kbd {
     });
   });
 
-  // Drag the panel by its header; double-click docks it back.
-  // The minimized bar drags the same way.
-  const head = $('#p-head'), mini = $('#mini');
-  const off = { x: 0, y: 0 };
-  let drag = null;
-  const endDrag = () => { drag = null; panel.classList.remove('dragging'); };
-  for (const handle of [head, mini]) {
-    handle.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('button, input')) return;
-      const r = panel.getBoundingClientRect(), d = desk.getBoundingClientRect();
-      drag = { x: e.clientX, y: e.clientY, ox: off.x, oy: off.y,
-        minX: off.x - (r.left - d.left), maxX: off.x + (d.right - r.right),
-        minY: off.y - (r.top - d.top), maxY: off.y + (d.bottom - 52 - r.bottom) };
-      handle.setPointerCapture(e.pointerId);
-      panel.classList.add('dragging');
-    });
-    handle.addEventListener('pointermove', (e) => {
-      if (!drag) return;
-      off.x = clamp(drag.ox + e.clientX - drag.x, drag.minX, drag.maxX);
-      off.y = clamp(drag.oy + e.clientY - drag.y, drag.minY, drag.maxY);
-      panel.style.translate = `${off.x}px ${off.y}px`;
-    });
-    handle.addEventListener('pointerup', endDrag);
-    handle.addEventListener('pointercancel', endDrag);
-  }
-  mini.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    setVol('master', state.master + (e.deltaY < 0 ? 2 : -2));
-  }, { passive: false });
-  head.addEventListener('dblclick', (e) => { if (e.target.closest('button')) return; off.x = off.y = 0; panel.style.translate = ''; });
-
-  // Resize from the top-left corner; the panel is anchored bottom-right, so it grows up and left.
-  const grip = $('#grip');
-  let rs = null;
-  grip.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    const r = panel.getBoundingClientRect(), d = desk.getBoundingClientRect();
-    rs = { x: e.clientX, y: e.clientY, w: r.width, h: r.height, maxW: r.right - d.left - 16, maxH: r.bottom - d.top - 16 };
-    grip.setPointerCapture(e.pointerId);
-    panel.classList.add('resizing'); badge.hidden = false;
-  });
-  grip.addEventListener('pointermove', (e) => {
-    if (!rs) return;
-    state.w = Math.round(clamp(rs.w - (e.clientX - rs.x), 260, rs.maxW));
-    state.h = Math.round(clamp(rs.h - (e.clientY - rs.y), 240, rs.maxH));
-    state.sizePreset = null;
-    applySize();
-  });
-  const endResize = () => { if (!rs) return; rs = null; panel.classList.remove('resizing'); flashBadge(); savePrefs(); };
-  grip.addEventListener('pointerup', endResize);
-  grip.addEventListener('pointercancel', endResize);
-  grip.addEventListener('dblclick', () => setSizePreset('regular'));
-
-  // Keep the panel on screen when the window shrinks or the panel expands.
-  function keepOnScreen() {
-    const r = panel.getBoundingClientRect(), d = desk.getBoundingClientRect();
-    if (r.left < d.left || r.top < d.top || r.right > d.right || r.bottom > d.bottom - 52) {
-      off.x = off.y = 0; panel.style.translate = '';
-    }
-  }
-  window.addEventListener('resize', keepOnScreen);
-
-  function setMin(min, animate = true) {
-    state.min = min;
-    panel.classList.toggle('is-min', min);
-    mini.hidden = !min;
-    for (const el of [head, $('#p-scroll'), $('.p-foot'), $('#grip')]) el.hidden = min;
-    if (animate) { panel.classList.remove('pop'); void panel.offsetWidth; panel.classList.add('pop'); }
-    (min ? $('#btn-restore') : $('#btn-min')).focus({ preventScroll: true });
-    keepOnScreen();
-    savePrefs();
-  }
-
-  function showPanel(show, focusId) {
-    panel.hidden = !show;
-    $('#tray-vol').setAttribute('aria-expanded', show);
-    if (show && focusId && state.min) setMin(false, false);
-    if (show) {
-      panel.classList.remove('pop'); void panel.offsetWidth; panel.classList.add('pop');
-      if (focusId) {
-        if (state.mode !== 'list') setMode('list');
-        const row = list.querySelector(`[data-id="${focusId}"]`);
-        row.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
-        row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash');
-      }
-    }
-  }
-  // Tray: hidden → show; minimized → expand; open → hide.
-  $('#tray-vol').addEventListener('click', () => {
-    if (panel.hidden) showPanel(true);
-    else if (state.min) setMin(false);
-    else showPanel(false);
-  });
-  $('#tb-apps').addEventListener('click', (e) => { const b = e.target.closest('[data-tb]'); if (b) showPanel(true, b.dataset.tb); });
-  window.addEventListener('keydown', (e) => {
-    if (!e.ctrlKey || !e.altKey) return;
-    const k = e.key.toLowerCase();
-    if (k === 'v') { e.preventDefault(); showPanel(panel.hidden); }
-    else if (k === 'm') { e.preventDefault(); if (panel.hidden) showPanel(true); setMin(!state.min); }
-  });
-
   function tick() {
     const d = new Date();
     $('#clock').innerHTML = `${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}<small>${d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</small>`;
+    cond.work = isWorkHours(d);
+    evaluateAuto();
   }
+
+  /* ---------- the mixer lives at a screen edge ----------
+     No free window: it always sits at the top, left or right edge, at a spot along that edge
+     you choose by dragging its header. When your mouse leaves, it slides past the edge and a
+     small glass pill stays behind. Hover the pill (or touch the edge) to bring it back. While
+     it's tucked away, the pill grows for a moment to show what changed. */
+  const island = $('#island'), islLive = $('#isl-live'), islVal = $('#isl-val'), islArt = $('#isl-art');
+  const dockHint = $('#dock-hint'), edgeHot = $('#edge-hot'), head = $('#p-head');
+  const islBars = [...island.querySelectorAll('.isl-bars i')];
+  const dock = { edge: null, tucked: false, timer: 0, liveTimer: 0 };
+  const TASKBAR = 52, GAP = 12;
+
+  // Which edge the pointer is nearest to, and how far along that edge (0 to 1).
+  function target(px, py, cx, cy) {
+    const d = desk.getBoundingClientRect();
+    const x = px - d.left, y = py - d.top, h = d.height - TASKBAR;
+    const dist = { top: y, left: x, right: d.width - x };
+    const edge = Object.keys(dist).reduce((a, b) => dist[a] <= dist[b] ? a : b);
+    const along = edge === 'top' ? clamp((cx - d.left) / d.width, 0, 1) : clamp((cy - d.top) / h, 0, 1);
+    return { edge, along };
+  }
+  // Where a mixer of size w × h goes on that edge, kept fully on screen.
+  function place(edge, along, w, h) {
+    const d = desk.getBoundingClientRect(), H = d.height - TASKBAR;
+    if (edge === 'top') return { x: clamp(d.width * along - w / 2, GAP, Math.max(GAP, d.width - w - GAP)), y: GAP };
+    const y = clamp(H * along - h / 2, GAP, Math.max(GAP, H - h - GAP));
+    return { x: edge === 'left' ? GAP : d.width - w - GAP, y };
+  }
+  function layoutDock() {
+    if (!dock.edge || panel.classList.contains('moving')) return;
+    const w = panel.offsetWidth, h = panel.offsetHeight;
+    const p = place(dock.edge, state.dockAlong, w, h), s = desk.style;
+    s.setProperty('--dock-x', p.x + 'px'); s.setProperty('--dock-y', p.y + 'px');
+    s.setProperty('--isl-x', p.x + w / 2 + 'px'); s.setProperty('--isl-y', p.y + h / 2 + 'px');
+    s.setProperty('--hot-x', p.x + 'px'); s.setProperty('--hot-w', w + 'px');
+    s.setProperty('--hot-y', p.y + 'px'); s.setProperty('--hot-h', h + 'px');
+  }
+  new ResizeObserver(layoutDock).observe(panel);
+  window.addEventListener('resize', layoutDock);
+
+  // While dragging: a glowing line where it will land.
+  function showHint(t) {
+    dockHint.hidden = !t;
+    if (!t) return;
+    const d = desk.getBoundingClientRect();
+    const w = t.edge === 'top' ? Math.min(860, d.width - 32) : Math.min(330, d.width - 32);
+    const h = t.edge === 'top' ? 0 : Math.min(panel.offsetHeight, d.height - TASKBAR - 2 * GAP);
+    const p = place(t.edge, t.along, w, h), s = dockHint.style;
+    dockHint.dataset.edge = t.edge;
+    if (t.edge === 'top') Object.assign(s, { left: p.x + 'px', top: '3px', width: w + 'px', height: '4px' });
+    else Object.assign(s, { left: t.edge === 'left' ? '3px' : d.width - 7 + 'px', top: p.y + 'px', width: '4px', height: h + 'px' });
+  }
+
+  function dockTo(edge, along, autoTuck = true) {
+    panel.classList.remove('dock-top', 'dock-left', 'dock-right');
+    panel.classList.add('dock-' + edge);
+    dock.edge = state.dockEdge = edge;
+    state.dockAlong = along;
+    island.dataset.edge = edgeHot.dataset.edge = edge;
+    island.hidden = edgeHot.hidden = false;
+    $('#btn-tuck').innerHTML = TUCK[edge];
+    layoutDock();
+    setTucked(false);
+    if (autoTuck && state.tuck) scheduleTuck(1400); // give it a moment, so it's clear where it went
+    savePrefs();
+  }
+
+  function setTucked(on) {
+    dock.tucked = on;
+    panel.classList.toggle('tucked', on);
+    panel.inert = on;                       // nothing inside a tucked mixer can take focus
+    island.classList.toggle('away', !on);   // the pill only shows while the mixer is away
+    $('#tray-vol').setAttribute('aria-expanded', !on);
+    if (on) { $('#look').hidden = true; $('#btn-look').setAttribute('aria-expanded', false); }
+    else { clearTimeout(dock.liveTimer); islQueue.length = 0; islNow = null; island.classList.remove('live'); }
+  }
+
+  function peek(stay = 1600) {
+    clearTimeout(dock.timer);
+    if (dock.tucked) setTucked(false);
+    if (state.tuck) scheduleTuck(stay);
+  }
+
+  function scheduleTuck(ms = 650) {
+    clearTimeout(dock.timer);
+    dock.timer = setTimeout(() => {
+      // Stay out while you're using it: pointer over it, a list open, or keyboard focus inside.
+      if (panel.matches(':hover') || panel.querySelector('select:focus, :focus-visible') || panel.classList.contains('moving')) return scheduleTuck(ms);
+      setTucked(true);
+    }, ms);
+  }
+
+  // The header's tuck button, the tray icon and Ctrl+Alt+V.
+  function tuckNow() { clearTimeout(dock.timer); setTucked(true); }
+  const toggleMixer = () => dock.tucked ? peek(2600) : tuckNow();
+
+  // Drag the header: the mixer follows the pointer, then snaps to the nearest edge.
+  let drag = null;
+  head.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || e.target.closest('button, input, select')) return;
+    const r = panel.getBoundingClientRect(), d = desk.getBoundingClientRect();
+    drag = { x0: e.clientX, y0: e.clientY, gx: e.clientX - r.left, gy: e.clientY - r.top, w: r.width, h: r.height, d, moved: false, t: null };
+    head.setPointerCapture(e.pointerId);
+    clearTimeout(dock.timer);
+  });
+  head.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    if (!drag.moved) {
+      if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 4) return;
+      drag.moved = true;
+      panel.classList.add('moving', 'dragging');
+    }
+    const { d } = drag;
+    const x = clamp(e.clientX - d.left - drag.gx, 0, Math.max(0, d.width - drag.w));
+    const y = clamp(e.clientY - d.top - drag.gy, 0, Math.max(0, d.height - TASKBAR - drag.h));
+    panel.style.setProperty('--drag-x', x + 'px');
+    panel.style.setProperty('--drag-y', y + 'px');
+    drag.t = target(e.clientX, e.clientY, d.left + x + drag.w / 2, d.top + y + drag.h / 2);
+    showHint(drag.t);
+  });
+  const endDrag = () => {
+    if (!drag) return;
+    const t = drag.moved ? drag.t : null;
+    drag = null;
+    showHint(null);
+    if (!t) return;
+    // Hand the current spot to the docked position first, so it glides from where you let go.
+    desk.style.setProperty('--dock-x', panel.style.getPropertyValue('--drag-x'));
+    desk.style.setProperty('--dock-y', panel.style.getPropertyValue('--drag-y'));
+    panel.classList.remove('moving', 'dragging');
+    void panel.offsetWidth;
+    dockTo(t.edge, t.along);
+  };
+  head.addEventListener('pointerup', endDrag);
+  head.addEventListener('pointercancel', endDrag);
+
+  island.addEventListener('mouseenter', () => peek());
+  island.addEventListener('click', () => peek(2600));
+  edgeHot.addEventListener('mouseenter', () => peek());
+  panel.addEventListener('mouseenter', () => clearTimeout(dock.timer));
+  panel.addEventListener('mouseleave', () => { if (state.tuck && !drag) scheduleTuck(); });
+  panel.addEventListener('keydown', (e) => { if (e.key === 'Escape') { tuckNow(); island.focus(); } });
+  // On a touch screen there's no hover: tapping anywhere else tucks it away.
+  desk.addEventListener('pointerdown', (e) => {
+    if (!dock.tucked && state.tuck && !panel.contains(e.target) && !island.contains(e.target) && !e.target.closest('.try, .taskbar')) scheduleTuck(0);
+  });
+  // Scroll over the pill, or use the arrow keys on it, to change the volume without opening the mixer.
+  island.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    setVol('master', state.master + (e.deltaY < 0 ? 2 : -2));
+  }, { passive: false });
+  island.addEventListener('keydown', (e) => {
+    const step = { ArrowUp: 2, ArrowRight: 2, ArrowDown: -2, ArrowLeft: -2 }[e.key];
+    if (step) { e.preventDefault(); setVol('master', state.master + step); }
+  });
+
+  // Tray icon: open or tuck. A taskbar app: open the mixer at that app's row.
+  $('#tray-vol').addEventListener('click', toggleMixer);
+  $('#tb-apps').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tb]');
+    if (!b) return;
+    peek(3200);
+    if (state.mode !== 'list') setMode('list');
+    const row = list.querySelector(`[data-id="${b.dataset.tb}"]`);
+    row.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+    row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash');
+  });
+
+  // The keyboard's volume and media keys (Windows sends these to every app) and the shortcuts.
+  window.addEventListener('keydown', (e) => {
+    switch (e.key) {
+      case 'AudioVolumeUp': e.preventDefault(); return setVol('master', state.master + 2);
+      case 'AudioVolumeDown': e.preventDefault(); return setVol('master', state.master - 2);
+      case 'AudioVolumeMute': e.preventDefault(); return toggleMute('master');
+      case 'MediaPlayPause': e.preventDefault(); return togglePlay();
+      case 'MediaTrackNext': e.preventDefault(); return skip(1);
+      case 'MediaTrackPrevious': e.preventDefault(); return skip(-1);
+    }
+    if (!e.ctrlKey || !e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === 'v') { e.preventDefault(); toggleMixer(); }
+    else if (k === 'k') { e.preventDefault(); toggleMic(); }
+  });
+
+  /* ---------- the pill's news ----------
+     One message at a time: a new one waits until the current one is done, except volume
+     changes, which update in place while you keep pressing the key. */
+  const islQueue = [];
+  let islNow = null;
+  const sameGroup = (a, b) => a === b || (['volume', 'mute'].includes(a) && ['volume', 'mute'].includes(b));
+  function notifyIsland(kind, arg) {
+    if (!dock.edge || !dock.tucked || !state.activity) return;
+    const n = { kind, arg };
+    if (islNow && !sameGroup(islNow.kind, kind)) {
+      const i = islQueue.findIndex(q => sameGroup(q.kind, kind));
+      if (i >= 0) islQueue[i] = n; else islQueue.push(n);
+      return;
+    }
+    showLive(n);
+  }
+  function showLive(n) {
+    islNow = n;
+    const { kind, arg } = n;
+    const muted = state.masterMuted;
+    const EQ = '<span class="isl-eq"><i></i><i></i><i></i><i></i></span>';
+    let iconHTML, iconCls = '', title, sub, right = EQ;
+    if (kind === 'volume' || kind === 'mute') {
+      const value = muted ? 0 : state.master;
+      iconHTML = speaker(state.master, muted); iconCls = muted ? ' muted' : '';
+      title = muted ? 'Muted' : 'Volume'; sub = deviceName();
+      right = `<span class="isl-bar"><i style="width:${value}%"></i></span><span class="isl-num">${value}</span>`;
+    } else if (kind === 'play') {
+      const a = byId[arg];
+      iconHTML = icon(a); title = a.name; sub = 'Started playing';
+    } else if (kind === 'device') {
+      iconHTML = I[state.device]; title = deviceName(); sub = 'Now playing through';
+    } else if (kind === 'track') {
+      const m = MEDIA[np.src](), paused = np.paused[np.src];
+      iconHTML = svg(GLYPH[byId[np.src].glyph]); iconCls = ' art';
+      title = m.title; sub = paused ? `Paused · ${byId[np.src].name.replace(' media player', '')}` : m.artist;
+      if (paused) right = '';
+    } else if (kind === 'mic') {
+      iconHTML = I.mic; iconCls = ' mic';
+      title = mic.users.join(', '); sub = 'is using your microphone';
+      right = '<span class="isl-dot"></span>';
+    } else if (kind === 'micmute') {
+      iconHTML = mic.muted ? I.micOff : I.mic; iconCls = mic.muted ? ' muted' : '';
+      title = mic.muted ? 'Microphone muted' : 'Microphone on';
+      sub = mic.users.length ? `${mic.users.join(', ')} ${mic.muted ? "can't hear you" : 'can hear you'}` : 'Not in use';
+      right = '';
+    } else if (kind === 'profile') {
+      iconHTML = I.auto;
+      title = `${PROFILES[arg].label} profile on`; sub = ruleFor(arg).on; right = '';
+    } else if (kind === 'profile-off') {
+      iconHTML = I.auto; iconCls = ' muted';
+      title = arg.to ? `Back to ${PROFILES[arg.to].label}` : 'Back to your mix';
+      sub = ruleFor(arg.from).off; right = '';
+    }
+    islLive.innerHTML = `
+      <span class="isl-icon${iconCls}">${iconHTML}</span>
+      <span class="isl-text"><b>${title}</b><small>${sub}</small></span>
+      ${right}`;
+    island.classList.add('live');
+    clearTimeout(dock.liveTimer);
+    dock.liveTimer = setTimeout(() => {
+      islNow = null;
+      island.classList.remove('live');
+      const next = islQueue.shift();
+      if (next) dock.liveTimer = setTimeout(() => dock.tucked && showLive(next), 380);
+    }, 2600);
+  }
+
+  // Live sound bars, volume, artwork and the mic dot in the compact pill.
+  function islandFrame(now) {
+    if (dock.edge) {
+      const level = state.masterMuted ? 0 : (reduce ? .5 : master.level);
+      const vertical = dock.edge !== 'top';
+      islBars.forEach((b, i) => {
+        const s = Math.max(.15, level * (.4 + .6 * Math.abs(Math.sin(now / 240 + i * 1.3))));
+        b.style.transform = vertical ? `scaleX(${s})` : `scaleY(${s})`;
+      });
+      island.querySelectorAll('.isl-eq i').forEach((b, i) => { b.style.transform = `scaleY(${.25 + .75 * Math.abs(Math.sin(now / 190 + i * 1.7))})`; });
+      island.classList.toggle('muted', state.masterMuted);
+      const art = playing(byId[np.src], now / 1000);
+      island.classList.toggle('has-art', art);
+      islArt.hidden = !art;
+      islVal.textContent = state.masterMuted ? '–' : state.master;
+      island.setAttribute('aria-label', `Volume ${state.masterMuted ? 'muted' : state.master + '%'}${mic.users.length ? ', microphone in use' : ''}. Show the volume mixer`);
+    }
+    requestAnimationFrame(islandFrame);
+  }
+
+  // "Try the pill": stand-ins for events Windows would report on a real PC.
+  $('#try').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-try]');
+    if (!b) return;
+    const act = b.dataset.try;
+    const wasTucked = dock.tucked;
+    tuckNow();
+    // When it has just tucked away, let it slide out of sight before the pill reacts.
+    setTimeout(() => {
+      if (act === 'up') setVol('master', state.master + 2);
+      else if (act === 'down') setVol('master', state.master - 2);
+      else if (act === 'mute') toggleMute('master');
+      else if (act === 'track') { np.src = 'spotify'; skip(1); }
+      else if (act === 'call') {
+        cond.call = !cond.call;
+        mic.users = cond.call ? ['Discord'] : [];
+        renderMic();
+        if (cond.call) notifyIsland('mic');
+        evaluateAuto();
+        b.textContent = cond.call ? 'Discord call ends' : 'Discord call starts';
+      } else if (act === 'game') {
+        cond.game = !cond.game;
+        evaluateAuto();
+        b.textContent = cond.game ? 'The game closes' : 'A game opens';
+      } else if (act === 'play') {
+        forcedPlay.vlc = true; np.paused.vlc = false; np.time.vlc = 0; np.src = 'vlc';
+        renderNP(); updateCounts();
+        notifyIsland('play', 'vlc');
+        clearTimeout(forcedPlay.timer);
+        forcedPlay.timer = setTimeout(() => {
+          forcedPlay.vlc = false;
+          if (np.src === 'vlc') np.src = 'spotify';
+          renderNP(); updateCounts();
+        }, 12000);
+      } else if (act === 'device') {
+        const i = DEVICES.findIndex(d => d.id === state.device);
+        const select = $('#dev');
+        select.value = DEVICES[(i + 1) % DEVICES.length].id;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }, wasTucked ? 0 : 420);
+  });
 
   /* ---------- boot ---------- */
   $('#dev-icon').innerHTML = I[state.device];
   applyLook();
-  applySize();
   setMode(state.mode);
-  if (state.min) {
-    state.min = true; panel.classList.add('is-min'); mini.hidden = false;
-    for (const el of [head, $('#p-scroll'), $('.p-foot'), $('#grip')]) el.hidden = true;
-  }
   renderAll();
   renderProfile();
+  renderNP();
+  renderMic();
+  dockTo(state.dockEdge, state.dockAlong, false); // opens at its edge; it tucks once your mouse has been and gone
   tick(); setInterval(tick, 30000);
   if (reduce) drawStatic(); else { updateCounts(0); requestAnimationFrame(frame); }
+  requestAnimationFrame(islandFrame);
 })();
 </script>
